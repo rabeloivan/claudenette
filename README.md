@@ -41,7 +41,7 @@ selects the tests:
 
 ```bash
 cd ~/piscine/C01
-python3 ~/claudenette/main.py
+python3 ~/claudenette/main.py     # or just `claudenette`, see the alias below
 ```
 
 That directory must be named `C00`–`C13`, or `rush00` / `rush01` / `rush02` / `bsq` /
@@ -50,11 +50,46 @@ with an error. **This is the most common first-run mistake** — running from th
 itself, or from a parent folder, will not work. Claudenette is the grader, not the
 submissions.
 
-Grade a subset by passing substring filters, matched against exercise paths:
+### Set up the `claudenette` alias
+
+Typing the full path every time gets old. Add the alias to your shell config —
+`~/.zshrc` on macOS (zsh is the default since Catalina), `~/.bashrc` on most Linux:
 
 ```bash
-python3 ~/claudenette/main.py ex03 ex04
+echo "alias claudenette='python3 ~/claudenette/main.py'" >> ~/.zshrc && source ~/.zshrc
 ```
+
+Every example below assumes it.
+
+### What you can pass it
+
+Arguments are **substring filters** matched against exercise paths, so anything
+that identifies an exercise works — an `exNN` directory, a filename, or both mixed.
+With no arguments you get the whole module.
+
+| Command | Grades |
+| --- | --- |
+| `claudenette` | every exercise in the module |
+| `claudenette ex00` | just `ex00` |
+| `claudenette ex00 ex03` | `ex00` and `ex03` |
+| `claudenette ft_print_program_name.c` | whichever exercise turns in that file |
+| `claudenette ft_print_program_name.c ex02` | mixed — the file's exercise, plus `ex02` |
+| `claudenette ex0` | `ex00`–`ex09` (it's a substring, not an exact match) |
+
+Filters are matched, not validated, so a typo grades nothing rather than failing:
+
+```
+$ claudenette ex99
+No exercises matched 'ex99'.
+```
+
+Two things worth knowing while iterating:
+
+- Filtering changes the **score**, not just the output. `claudenette ex03` reports
+  `100/100` for that one exercise alone. Only a full run tells you where you stand,
+  because of the leading-run rule below.
+- The exercise directory must exist. A filter naming an exercise you haven't started
+  reports `ABSENT`, which counts as a failure.
 
 ### Options
 
