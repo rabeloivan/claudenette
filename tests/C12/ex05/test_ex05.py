@@ -9,6 +9,11 @@ from utils.ui import (
     print_test_pass,
 )
 
+FREE_TRACKER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "free_tracker.c",
+)
+
 C12_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FT_CREATE_ELEM_REF = os.path.join(C12_DIR, "ft_create_elem_ref.c")
 HARNESS_UTILS = os.path.join(C12_DIR, "harness_utils.c")
@@ -22,7 +27,7 @@ def run_C12_ex05(student_file):
 
     flags = ["-Wall", "-Wextra", "-Werror", "-I", student_dir]
     if not compile_source(
-        [student_file, harness_path, FT_CREATE_ELEM_REF, HARNESS_UTILS],
+        [student_file, harness_path, FT_CREATE_ELEM_REF, HARNESS_UTILS, FREE_TRACKER],
         exe_path,
         flags=flags,
     ):

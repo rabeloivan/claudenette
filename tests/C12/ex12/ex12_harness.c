@@ -12,6 +12,7 @@
 
 #include "ft_list.h"
 #include "../harness_utils.h"
+#include "../../free_tracker.h"
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -37,8 +38,11 @@ int	main(int argc, char **argv)
 	int		pos;
 	int		i;
 	int		values[64];
+	int		node_vals[64];
+	int		node_count;
 	t_list	*list;
 	t_list	*cur;
+	t_list	*nodes[64];
 
 	if (h_null_callback_mode(argc, argv))
 	{
@@ -75,6 +79,25 @@ int	main(int argc, char **argv)
 		i++;
 	}
 	list = h_build_list(values, count);
+	/*
+	** Snapshot every link and its value before the call: afterwards the
+	** removed ones have been freed and can't be dereferenced, but the
+	** tracker can still be asked about their addresses. Without this the
+	** harness only sees which `data` free_fct got and what's left in the
+	** list - an implementation that unlinks nodes and frees their data but
+	** leaks the nodes themselves looks identical to a correct one.
+	*/
+	i = 0;
+	cur = list;
+	while (cur != NULL && i < 64)
+	{
+		nodes[i] = cur;
+		node_vals[i] = (int)(long)cur->data;
+		h_track(cur);
+		cur = cur->next;
+		i++;
+	}
+	node_count = i;
 	ft_list_remove_if(&list, (void *)(long)ref, &h_cmp_int_asc, &record_free);
 	write(1, "\n", 1);
 	cur = list;
@@ -87,5 +110,25 @@ int	main(int argc, char **argv)
 		cur = cur->next;
 		i++;
 	}
+	/*
+	** Per-link disposition, so the Python side can require exactly:
+	** every link whose value matched data_ref was freed once ("F"), and
+	** every link that stayed in the list was not freed at all ("K").
+	** Freeing a retained link is a use-after-free, the opposite failure
+	** from leaking a removed one, and both must be caught.
+	*/
+	write(1, "\n", 1);
+	h_put_str("nodes:");
+	i = 0;
+	while (i < node_count)
+	{
+		if (i > 0)
+			write(1, ",", 1);
+		h_put_int(node_vals[i]);
+		write(1, "=", 1);
+		h_put_int(h_free_count_of(nodes[i]));
+		i++;
+	}
+	write(1, "\n", 1);
 	return (0);
 }

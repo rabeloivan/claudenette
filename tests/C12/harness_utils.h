@@ -3,6 +3,12 @@
 
 # include "ft_list.h"
 
+/*
+** Note: nothing here may depend on tests/free_tracker.h. This file is
+** linked into every C12 harness, but free_tracker.c is linked only into
+** the few that assert freeing - a reference from here fails to link the
+** other sixteen.
+*/
 t_list	*h_build_list(int *values, int count);
 void	h_put_int(int n);
 void	h_put_ptr(unsigned long n);

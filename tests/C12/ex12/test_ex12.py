@@ -11,6 +11,67 @@ from utils.ui import (
 
 C12_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HARNESS_UTILS = os.path.join(C12_DIR, "harness_utils.c")
+FREE_TRACKER = os.path.join(os.path.dirname(C12_DIR), "free_tracker.c")
+
+
+def check_node_disposition(nodes_str, tab, ref):
+    # nodes_str: "nodes:1=0,2=1,3=0" - value=times_that_link_was_freed, in
+    # original list order. The subject's "the link is freed" obligation is
+    # per-link: a link whose data matched data_ref must be freed exactly
+    # once, and a link that stayed in the list must never be freed (that
+    # would be a use-after-free, the opposite bug from leaking).
+    #
+    # Returns None when everything is right, otherwise (description, kwargs
+    # for print_test_fail).
+    nodes_str = nodes_str.strip()
+    if not nodes_str.startswith("nodes:"):
+        return (
+            "could not read the harness's link-tracking line",
+            {"expected": "nodes:<val>=<freed>,...", "actual": nodes_str},
+        )
+
+    body = nodes_str[len("nodes:") :]
+    entries = []
+    if body:
+        for field in body.split(","):
+            val, sep, times = field.partition("=")
+            try:
+                entries.append((int(val), int(times)))
+            except ValueError:
+                return (
+                    "could not read the harness's link-tracking line",
+                    {"expected": "nodes:<val>=<freed>,...", "actual": nodes_str},
+                )
+
+    if [v for v, _ in entries] != list(tab):
+        return (
+            "harness link snapshot didn't match the input list",
+            {"expected": list(tab), "actual": [v for v, _ in entries]},
+        )
+
+    leaked = [v for v, times in entries if v == ref and times == 0]
+    doubled = [v for v, times in entries if v == ref and times > 1]
+    wrongly_freed = [v for v, times in entries if v != ref and times > 0]
+
+    if leaked:
+        return (
+            f"removed {len(leaked)} matching element(s) but never freed their link(s)",
+            {
+                "expected": f"all {tab.count(ref)} matching link(s) freed",
+                "actual": f"{len(leaked)} leaked",
+            },
+        )
+    if doubled:
+        return (
+            f"freed {len(doubled)} removed link(s) more than once",
+            {"expected": "each removed link freed exactly once", "actual": f"{len(doubled)} double-freed"},
+        )
+    if wrongly_freed:
+        return (
+            f"freed {len(wrongly_freed)} link(s) that should have stayed in the list",
+            {"expected": "links kept in the list are not freed", "actual": f"freed {wrongly_freed}"},
+        )
+    return None
 
 
 def run_C12_ex12(student_file):
@@ -26,7 +87,7 @@ def run_C12_ex12(student_file):
         "-I", student_dir,
     ]
     if not compile_source(
-        [student_file, harness_path, HARNESS_UTILS], exe_path, flags=flags
+        [student_file, harness_path, HARNESS_UTILS, FREE_TRACKER], exe_path, flags=flags
     ):
         return False
 
@@ -53,10 +114,13 @@ def run_C12_ex12(student_file):
 
         # record_free writes (comma-joined) during the call itself, before
         # the harness's own post-call walk prints survivors - so the freed
-        # sequence necessarily comes first in program-output order.
-        parts = actual.split("\n", 1)
+        # sequence necessarily comes first in program-output order. The
+        # third line is the free tracker's per-link disposition.
+        parts = actual.split("\n")
         freed_str = parts[0] if len(parts) >= 1 else ""
         survivors_str = parts[1] if len(parts) >= 2 else ""
+        nodes_str = parts[2] if len(parts) >= 3 else ""
+        node_problem = check_node_disposition(nodes_str, tab, ref)
 
         def parse_ints(s, expected_list):
             if s == "" and not expected_list:
@@ -71,18 +135,20 @@ def run_C12_ex12(student_file):
         if actual_freed is not None:
             actual_freed = sorted(actual_freed)
 
-        if actual_survivors == expected_survivors and actual_freed == expected_freed:
-            summary = f"survivors={actual_survivors}, freed={actual_freed}"
-            print_test_pass(i, f"{desc}: {summary} as expected")
-            passed_count += 1
-        elif actual_survivors != expected_survivors:
+        if actual_survivors != expected_survivors:
             print_test_fail(
                 i, f"{desc}: survivors not as expected", expected=expected_survivors, actual=survivors_str
             )
-        else:
+        elif actual_freed != expected_freed:
             print_test_fail(
                 i, f"{desc}: free_fct calls not as expected", expected=expected_freed, actual=freed_str
             )
+        elif node_problem is not None:
+            print_test_fail(i, f"{desc}: {node_problem[0]}", **node_problem[1])
+        else:
+            summary = f"survivors={actual_survivors}, freed={actual_freed}"
+            print_test_pass(i, f"{desc}: {summary}, removed links freed as expected")
+            passed_count += 1
 
     total_count += 1
     actual, err, code = run_test_case(exe_path, args=["nullcb"], timeout=2)

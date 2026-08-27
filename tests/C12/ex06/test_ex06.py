@@ -11,6 +11,23 @@ from utils.ui import (
 
 C12_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HARNESS_UTILS = os.path.join(C12_DIR, "harness_utils.c")
+FREE_TRACKER = os.path.join(os.path.dirname(C12_DIR), "free_tracker.c")
+
+
+def parse_nodes_line(line):
+    # "nodes:freed=3 leaked=0 double=0" -> {"freed": 3, "leaked": 0, "double": 0}
+    line = line.strip()
+    if not line.startswith("nodes:"):
+        return None
+    counts = {}
+    for field in line[len("nodes:") :].split():
+        key, sep, value = field.partition("=")
+        if not sep or not value.isdigit():
+            return None
+        counts[key] = int(value)
+    if {"freed", "leaked", "double"} - counts.keys():
+        return None
+    return counts
 
 
 def run_C12_ex06(student_file):
@@ -21,7 +38,7 @@ def run_C12_ex06(student_file):
 
     flags = ["-Wall", "-Wextra", "-Werror", "-I", student_dir]
     if not compile_source(
-        [student_file, harness_path, HARNESS_UTILS], exe_path, flags=flags
+        [student_file, harness_path, HARNESS_UTILS, FREE_TRACKER], exe_path, flags=flags
     ):
         return False
 
@@ -38,25 +55,57 @@ def run_C12_ex06(student_file):
         actual, err, code = run_test_case(exe_path, input_data=input_str)
         desc = f"ft_list_clear(list of {tab}, free_fct)"
 
+        # The harness now emits two lines: the comma-separated data values
+        # free_fct was called on, then a "nodes:freed=N leaked=N double=N"
+        # line from the free tracker. Both matter - the subject requires
+        # freeing the links *and* using free_fct on each data.
+        data_line, _, nodes_line = actual.partition("\n")
+        nodes = parse_nodes_line(nodes_line)
+
         actual_freed = None
-        if actual == "" and not expected:
+        if data_line == "" and not expected:
             actual_freed = []
         else:
             try:
-                actual_freed = sorted(int(x) for x in actual.split(","))
+                actual_freed = sorted(int(x) for x in data_line.split(","))
             except ValueError:
                 actual_freed = None
 
-        if actual_freed == expected:
-            print_test_pass(i, f"{desc}: free_fct called exactly once per element as expected")
-            passed_count += 1
-        else:
+        if actual_freed != expected:
             print_test_fail(
                 i,
                 f"{desc}: free_fct calls not as expected",
                 expected=expected,
-                actual=actual_freed if actual_freed is not None else actual,
+                actual=actual_freed if actual_freed is not None else data_line,
             )
+        elif nodes is None:
+            print_test_fail(
+                i,
+                f"{desc}: could not read the harness's node-tracking line",
+                expected="nodes:freed=N leaked=N double=N",
+                actual=nodes_line,
+            )
+        elif nodes["leaked"]:
+            print_test_fail(
+                i,
+                f"{desc}: called free_fct on every element but leaked "
+                f"{nodes['leaked']} of {len(tab)} list link(s)",
+                expected=f"all {len(tab)} link(s) freed",
+                actual=f"{nodes['freed']} freed, {nodes['leaked']} leaked",
+            )
+        elif nodes["double"]:
+            print_test_fail(
+                i,
+                f"{desc}: freed {nodes['double']} list link(s) more than once",
+                expected=f"each of {len(tab)} link(s) freed exactly once",
+                actual=f"{nodes['double']} double-freed",
+            )
+        else:
+            print_test_pass(
+                i,
+                f"{desc}: freed every link and called free_fct once per element",
+            )
+            passed_count += 1
 
     total_count += 1
     actual, err, code = run_test_case(exe_path, args=["nullcb"], timeout=2)

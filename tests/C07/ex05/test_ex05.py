@@ -11,6 +11,12 @@ from utils.ui import (
 )
 
 
+FREE_TRACKER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "free_tracker.c",
+)
+
+
 def expected_split(s, charset):
     result = []
     current = []
@@ -31,7 +37,13 @@ def run_C07_ex05(student_file):
     harness_path = os.path.join(test_dir, "ex05_harness.c")
     exe_path = "./split"
 
-    if not compile_source([student_file, harness_path], exe_path):
+    # free_tracker.c poisons malloc'd memory. Without it the harness's
+    # `while (ret[k] != NULL)` walk is satisfied by whatever zero bytes the
+    # real allocator happened to hand back, so a split that never writes the
+    # NULL terminator the subject demands passes every single run.
+    if not compile_source(
+        [student_file, harness_path, FREE_TRACKER], exe_path
+    ):
         return False
 
     print_command_execution(exe_path)

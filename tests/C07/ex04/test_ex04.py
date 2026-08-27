@@ -12,6 +12,11 @@ from utils.ui import (
     print_test_pass,
 )
 
+FREE_TRACKER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "free_tracker.c",
+)
+
 WHITESPACE = (" ", "\t", "\n", "\v", "\f", "\r")
 
 
@@ -86,7 +91,7 @@ def run_C07_ex04(student_file):
     norm_ok_2 = check_norminette(second_file)
     allowed_ok_2 = check_allowed_functions(second_file, ["malloc", "free"])
 
-    if not compile_source([student_file, second_file, harness_path], exe_path):
+    if not compile_source([student_file, second_file, harness_path, FREE_TRACKER], exe_path):
         return False
 
     print_command_execution(exe_path)

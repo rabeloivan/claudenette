@@ -12,6 +12,7 @@
 
 #include "ft_list.h"
 #include "../harness_utils.h"
+#include "../../free_tracker.h"
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -36,6 +37,7 @@ int	main(int argc, char **argv)
 	int		i;
 	int		values[64];
 	t_list	*list;
+	t_list	*node;
 
 	if (h_null_callback_mode(argc, argv))
 	{
@@ -67,6 +69,27 @@ int	main(int argc, char **argv)
 		i++;
 	}
 	list = h_build_list(values, count);
+	node = list;
+	while (node != NULL)
+	{
+		h_track(node);
+		node = node->next;
+	}
 	ft_list_clear(list, &record_free);
+	/*
+	** The subject states two obligations - "removes and frees all links"
+	** AND "free_fct is used to free each data". The comma-separated values
+	** above cover only the second; without this line an implementation
+	** that calls free_fct on every element and never frees a node scores
+	** 100/100 while leaking the entire list.
+	*/
+	write(1, "\n", 1);
+	h_put_str("nodes:freed=");
+	h_put_int(h_freed_count());
+	h_put_str(" leaked=");
+	h_put_int(h_leaked_count());
+	h_put_str(" double=");
+	h_put_int(h_double_freed_count());
+	write(1, "\n", 1);
 	return (0);
 }

@@ -10,13 +10,18 @@ from utils.ui import (
     print_test_pass,
 )
 
+FREE_TRACKER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "free_tracker.c",
+)
+
 
 def run_C07_ex03(student_file):
     test_dir = os.path.dirname(os.path.abspath(__file__))
     harness_path = os.path.join(test_dir, "ex03_harness.c")
     exe_path = "./strjoin"
 
-    if not compile_source([student_file, harness_path], exe_path):
+    if not compile_source([student_file, harness_path, FREE_TRACKER], exe_path):
         return False
 
     print_command_execution(exe_path)

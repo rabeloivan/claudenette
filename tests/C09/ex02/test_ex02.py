@@ -10,6 +10,11 @@ from utils.ui import (
     print_test_pass,
 )
 
+FREE_TRACKER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "free_tracker.c",
+)
+
 
 def expected_split(s, charset):
     result = []
@@ -31,7 +36,7 @@ def run_C09_ex02(student_file):
     harness_path = os.path.join(test_dir, "ex02_harness.c")
     exe_path = "./split"
 
-    if not compile_source([student_file, harness_path], exe_path):
+    if not compile_source([student_file, harness_path, FREE_TRACKER], exe_path):
         return False
 
     print_command_execution(exe_path)

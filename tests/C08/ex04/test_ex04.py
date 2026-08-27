@@ -10,6 +10,11 @@ from utils.ui import (
     print_test_pass,
 )
 
+FREE_TRACKER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "free_tracker.c",
+)
+
 
 def run_C08_ex04(student_file):
     test_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +22,7 @@ def run_C08_ex04(student_file):
     exe_path = "./strs_to_tab"
 
     flags = ["-Wall", "-Wextra", "-Werror", "-I", test_dir]
-    if not compile_source([student_file, harness_path], exe_path, flags=flags):
+    if not compile_source([student_file, harness_path, FREE_TRACKER], exe_path, flags=flags):
         return False
 
     print_command_execution(exe_path)
