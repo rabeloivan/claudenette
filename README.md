@@ -13,15 +13,29 @@ Covers **C00–C13**, **rush00 / rush01 / rush02**, **bsq**, and **shell00 / she
 
 ```bash
 git clone https://github.com/rabeloivan/claudenette.git ~/claudenette
-pip install -r ~/claudenette/requirements.txt
+python3 -m venv ~/claudenette/.venv
+~/claudenette/.venv/bin/pip install -r ~/claudenette/requirements.txt
 ```
+
+The virtual environment isn't ceremony. On Ubuntu 23.04+, Debian 12+, Fedora, and
+Homebrew's Python on macOS, a plain `pip install` is refused outright:
+
+```
+error: externally-managed-environment
+```
+
+That's [PEP 668](https://peps.python.org/pep-0668/) — those distributions protect the
+system Python from pip, and the message suggests `pipx`. Reach for `pipx` only for
+`norminette`, though: it installs *applications*, and `rich` is a library claudenette
+has to `import`, so `pipx install rich` would leave you no better off. A venv gets you
+both in one step and works identically on every platform.
 
 ### Prerequisites
 
 | Tool | How to get it |
 | --- | --- |
-| `rich` | `pip install -r requirements.txt` |
-| `norminette` | `pip install -r requirements.txt` (it's on PyPI) |
+| `rich` | the venv step above |
+| `norminette` | the venv step above (it's on PyPI) |
 | `cc` | your system C toolchain — macOS: `xcode-select --install`, Debian/Ubuntu: `sudo apt install build-essential` |
 | `nm` | ships with the same toolchain as `cc` (`binutils` on Debian/Ubuntu) |
 
@@ -41,7 +55,7 @@ selects the tests:
 
 ```bash
 cd ~/piscine/C01
-python3 ~/claudenette/main.py     # or just `claudenette`, see the alias below
+~/claudenette/.venv/bin/python ~/claudenette/main.py   # or just `claudenette`, see below
 ```
 
 That directory must be named `C00`–`C13`, or `rush00` / `rush01` / `rush02` / `bsq` /
@@ -56,8 +70,11 @@ Typing the full path every time gets old. Add the alias to your shell config —
 `~/.zshrc` on macOS (zsh is the default since Catalina), `~/.bashrc` on most Linux:
 
 ```bash
-echo "alias claudenette='python3 ~/claudenette/main.py'" >> ~/.zshrc && source ~/.zshrc
+echo "alias claudenette='~/claudenette/.venv/bin/python ~/claudenette/main.py'" >> ~/.zshrc && source ~/.zshrc
 ```
+
+Point it at the venv's Python, not a bare `python3` — that's what has `rich` and
+`norminette`. You never need to "activate" anything.
 
 Every example below assumes it.
 

@@ -26,3 +26,6 @@ graphify-out/
 # Grader-development notes. Documents the fixtures/ + tools/ workflow, none of
 # which ships, so in a clone it would describe directories that aren't there.
 CLAUDE.md
+
+# Local virtualenv created by the README install steps.
+.venv/
