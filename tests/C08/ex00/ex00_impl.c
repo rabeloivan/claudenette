@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   ex00_impl.c                                        :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: claudenette <claudenette@student.42.fr>    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/08/26 00:00:00 by claudenette       #+#    #+#             */
-/*   Updated: 2026/08/26 00:00:00 by claudenette      ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 /*
 ** The five functions ft.h is required to declare, defined in a translation
 ** unit of their own.

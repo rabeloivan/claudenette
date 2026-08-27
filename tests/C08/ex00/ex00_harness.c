@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   ex00_harness.c                                     :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: rabeloivan <rabeloivan@student.42.fr>      +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/08/16 00:00:00 by rabeloivan        #+#    #+#             */
-/*   Updated: 2026/08/16 00:00:00 by rabeloivan       ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 /*
 ** Calls the five functions but defines none of them - they live in
 ** ex00_impl.c, a separate translation unit. That separation IS the test:
