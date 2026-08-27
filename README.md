@@ -185,12 +185,6 @@ The subject PDFs are 42's own course material and are **not** distributed here. 
 them from the intranet. Claudenette never reads them at runtime — they're only
 needed if you want to check a rule yourself.
 
-Two small exception files do ship: `tests/shell00/ex07/fixture/{a.txt,sw.diff}`. That
-exercise asks you to produce a file `b` such that `diff a b > sw.diff`, so `b` has no
-defined content without those two — the grader reads them on every run, and cannot
-check the exercise at all otherwise. Unlike the PDFs, they aren't documentation; they
-are the reference data the check is made of.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
