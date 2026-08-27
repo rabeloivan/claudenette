@@ -10,48 +10,18 @@
 /*                                                                            */
 /* ************************************************************************** */
 
+/*
+** Calls the five functions but defines none of them - they live in
+** ex00_impl.c, a separate translation unit. That separation IS the test:
+** with nothing but ft.h in scope here, every prototype the subject requires
+** ("It should contain the prototypes of all the following functions") must
+** actually be present in the student's header or this file will not compile
+** under -Werror. Merging the definitions back into this file would make the
+** prototypes unnecessary again and silently un-test the entire exercise.
+*/
+
 #include "ft.h"
 #include <unistd.h>
-
-void	ft_putchar(char c)
-{
-	write(1, &c, 1);
-}
-
-void	ft_swap(int *a, int *b)
-{
-	int	tmp;
-
-	tmp = *a;
-	*a = *b;
-	*b = tmp;
-}
-
-void	ft_putstr(char *str)
-{
-	while (*str)
-		write(1, str++, 1);
-}
-
-int	ft_strlen(char *str)
-{
-	int	i;
-
-	i = 0;
-	while (str[i])
-		i++;
-	return (i);
-}
-
-int	ft_strcmp(char *s1, char *s2)
-{
-	int	i;
-
-	i = 0;
-	while (s1[i] && s1[i] == s2[i])
-		i++;
-	return ((unsigned char)s1[i] - (unsigned char)s2[i]);
-}
 
 static void	put_int(int n)
 {

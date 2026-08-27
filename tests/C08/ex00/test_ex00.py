@@ -17,8 +17,13 @@ def run_C08_ex00(student_file):
     student_dir = os.path.dirname(student_file)
     exe_path = "./ft_h_test"
 
+    # ex00_impl.c defines the five functions; ex00_harness.c calls them with
+    # only the student's ft.h in scope. Compiling them as separate translation
+    # units is what forces the header to actually declare them - see the
+    # comment at the top of ex00_impl.c.
+    impl_path = os.path.join(test_dir, "ex00_impl.c")
     flags = ["-Wall", "-Wextra", "-Werror", "-I", student_dir]
-    if not compile_source([harness_path], exe_path, flags=flags):
+    if not compile_source([harness_path, impl_path], exe_path, flags=flags):
         return False
 
     print_command_execution(exe_path)
