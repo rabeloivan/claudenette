@@ -44,10 +44,19 @@ def run_C10_ex03(student_file):
         return False
 
     if shutil.which("hexdump") is None:
-        print_test_fail(1, "system `hexdump` not found - can't build an expected-output oracle")
-        print_exercise_result("ex03/hexdump", 0, 1)
+        # Should be unreachable: this exercise declares requires_tools:
+        # ["hexdump"] so preflight() refuses the run first. Kept as a backstop
+        # for anyone calling run_C10_ex03 directly, and it RAISES rather than
+        # reporting a failed test - a missing tool on the grader's machine is
+        # not the student being wrong, and main.py surfaces an exception as
+        # CRASH ("a bug in claudenette, not necessarily your submission")
+        # rather than as KO.
         cleanup_build(student_dir, BINARY)
-        return False
+        raise RuntimeError(
+            "system `hexdump` not found - this exercise is graded against its "
+            "output, so it cannot be graded here. Install it (Debian/Ubuntu: "
+            "bsdextrautils; macOS: it ships with the base system)."
+        )
 
     print_command_execution(binary_path)
 

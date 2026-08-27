@@ -25,11 +25,20 @@ COMPILER_ARTIFACTS = {
     "stack_chk_guard",
     "stack_chk_fail_local",
     "chkstk_darwin",
-    # macOS's <errno.h> defines the `errno` macro as `(*__error())` - merely
-    # *reading* errno (no explicit call in the student's source at all) makes
-    # this show up as an undefined symbol. Several C10 exercises explicitly
-    # say "You may use the variable errno", so this must never be flagged.
+    # Reading `errno` - with no call written in the student's source at all -
+    # leaves an undefined symbol behind, because <errno.h> defines errno as a
+    # macro that calls a per-thread accessor. The accessor differs per libc:
+    # macOS uses `(*__error())`, glibc `(*__errno_location())`, musl
+    # `(*__errno_location())` too. Several C10 exercises explicitly say "You
+    # may use the variable errno", so none of these may ever be flagged.
+    #
+    # Names are matched with leading underscores stripped, hence the bare
+    # spellings. Missing the glibc one made every errno-using exercise report
+    # FORBIDDEN FN on Linux while passing on macOS - caught by running the
+    # fixture sweep inside the Ubuntu image (tools/docker/), not on the host.
     "error",
+    "errno_location",
+    "errno",
 }
 
 

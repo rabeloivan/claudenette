@@ -33,10 +33,26 @@ def run_shell01_ex04(student_file):
     # The real machine's own MAC addresses as ground truth (same
     # real-tool-as-oracle approach as C10's hexdump) - not a fixture, since
     # there's nothing to fake here, only this machine's real interfaces.
+    #
+    # Take the field immediately AFTER "ether", not the last field on the
+    # line. macOS prints
+    #     ether 7e:66:1b:f3:93:f4
+    # where those happen to be the same token, but Linux prints
+    #     ether 7e:66:1b:f3:93:f4  txqueuelen 0  (Ethernet)
+    # so the last field is "(Ethernet)". Comparing against that made this test
+    # fail every correct submission on Linux - i.e. on the platform 42's own
+    # moulinette runs - while passing on the author's Mac.
     ifconfig_out = subprocess.run(
         ["ifconfig"], capture_output=True, text=True, timeout=5
     ).stdout
-    expected = {line.split()[-1] for line in ifconfig_out.splitlines() if "ether " in line}
+
+    expected = set()
+    for line in ifconfig_out.splitlines():
+        fields = line.split()
+        if "ether" in fields:
+            at = fields.index("ether")
+            if at + 1 < len(fields):
+                expected.add(fields[at + 1])
 
     actual, err, code = run_sh(student_file)
     actual_lines = [line for line in actual.splitlines() if line]

@@ -187,7 +187,16 @@ def compute_rush00_score(variant_results):
     return int(100 + (streak - 1) * 6.25)
 
 
-def run_C_rush00(student_file):
+def run_C_rush00(student_file, precheck_ok=True):
+    # precheck_ok is main.py's norminette + allowed-functions verdict. rush00
+    # is the one project that prints its own Result/Final score/Status block
+    # instead of main.py's generic one, so unless that verdict reaches here
+    # it gets computed and then silently discarded - a norm or forbidden-
+    # function violation in ft_putchar.c would show "125% PASSED". When the
+    # precheck failed we still run every variant (diagnostics are useful
+    # either way, matching main.py's priority-not-short-circuit rule), but
+    # we suppress our own summary so main.py's generic one - which reports
+    # the real NORM ERR / FORBIDDEN FN status - is what the student sees.
     student_dir = os.path.dirname(student_file)
     main_c = os.path.join(student_dir, "main.c")
     variants = discover_variants(student_dir)
@@ -197,7 +206,8 @@ def run_C_rush00(student_file):
             1, "no rush0X.c file found in ex00/ (expected one of rush00.c..rush04.c)"
         )
         print_exercise_result("ex00/rush0X.c", 0, 1)
-        print_rush00_summary([], 0)
+        if precheck_ok:
+            print_rush00_summary([], 0)
         return False
 
     main_ok = check_main_compiles(main_c, student_file, variants[0][1])
@@ -216,6 +226,7 @@ def run_C_rush00(student_file):
     # still shown above and in the Result line either way, since that's
     # still useful diagnostic information on its own.
     score = compute_rush00_score(variant_results) if main_ok else 0
-    print_rush00_summary(variant_results, score)
+    if precheck_ok:
+        print_rush00_summary(variant_results, score)
 
     return score > 0

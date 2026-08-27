@@ -1,8 +1,8 @@
-import time
-
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
+
+from utils import __version__
 
 # CLAUDENETTE_ART prints at 92 columns wide - used as the fixed delimiter for
 # every centered/wrapped line in this file, so output looks the same
@@ -31,12 +31,11 @@ def print_header():
         console.print(Text(line, style="orange3"))
 
     print()
-    msg = "Claudenette version 1.0.0 (Aug 2026)"
+    msg = f"Claudenette version {__version__}"
     console.print(Text(f"{msg:^{BANNER_WIDTH}s}", style="italic bright_black"))
     print()
     console.print(Text("-" * BANNER_WIDTH, style="bright_black"))
     print()
-    time.sleep(1)
 
 
 def print_command_execution(command):
@@ -207,12 +206,29 @@ def print_final_summary(results):
     passed_for_score = 0
     counting_score = True
 
+    # SKIPPED means every check that ran passed, but --skip-norm/--skip-fn
+    # meant one didn't run. That's not a failure, so it must not break the
+    # score streak the way KO does - the functional result is still real and
+    # worth showing. What it does poison is the verdict: we genuinely cannot
+    # say whether the moulinette would pass this, so the status becomes
+    # UNKNOWN rather than a PASSED we can't stand behind or a FAILED that
+    # would wrongly imply the code is broken.
+    any_skipped = False
+
     for name, status in results:
-        color = "sea_green2" if status == "OK" else "deep_pink2"
+        if status == "OK":
+            color = "sea_green2"
+        elif status == "SKIPPED":
+            color = "yellow"
+        else:
+            color = "deep_pink2"
         plain = f"{name}: {status}"
         entries.append((plain, f"[{color}]{escape(name)}: {status}[/{color}]"))
 
-        if status == "OK":
+        if status == "SKIPPED":
+            any_skipped = True
+
+        if status in ("OK", "SKIPPED"):
             if counting_score:
                 passed_for_score += 1
         else:
@@ -225,6 +241,12 @@ def print_final_summary(results):
     score = (
         int((passed_for_score / total_exercises) * 100) if total_exercises > 0 else 0
     )
+
+    if any_skipped:
+        console.print(f"Final score: [yellow]{score}/100[/yellow]", highlight=False)
+        console.print("Status:      [yellow]UNKNOWN (checks skipped)[/yellow]")
+        return
+
     color = "sea_green2" if score >= 50 else "deep_pink2"
     console.print(f"Final score: [{color}]{score}/100[/{color}]", highlight=False)
 

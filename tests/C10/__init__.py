@@ -28,6 +28,14 @@ def get_mapping():
             "ex03",
             run_C10_ex03,
             ["close", "open", "read", "write", "malloc", "free", "strerror", "basename"],
-            {"allowed_files": ["*.c", "*.h", "*.o", "ft_hexdump"]},
+            # This exercise is graded by diffing the student's output against
+            # the real hexdump(1), so without it there is nothing to compare
+            # to. Declared here so preflight() refuses the run with install
+            # instructions instead of the test reporting KO, which would blame
+            # the student for claudenette's own missing dependency.
+            {
+                "allowed_files": ["*.c", "*.h", "*.o", "ft_hexdump"],
+                "requires_tools": ["hexdump"],
+            },
         ),
     }
