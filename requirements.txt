@@ -1,0 +1,9 @@
+# Claudenette's Python dependencies. Both are on PyPI:
+#
+#     pip install -r requirements.txt
+#
+# The other two tools claudenette needs - cc and nm - are your system's C
+# toolchain and can't be installed from here. If you're doing the C Piscine
+# you already have them; if not, see the README.
+rich
+norminette

@@ -1,4 +1,28 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Grader-development only: known-good/known-bad submissions, their run logs,
+# and the scripts that drive them. Not needed to grade a real submission.
 fixtures/
+fixture-logs/
+tools/
+
+# 42's official course material, and anything derived from it. The PDFs are
+# a local development reference only - claudenette never reads them at
+# runtime - and graphify-out/ carries the same content in extracted form
+# (310 of its nodes are sourced from subjects/*.pdf), so ignoring the PDFs
+# alone would still republish them.
+subjects/
+graphify-out/
+
+# Local tooling config (graphify skill, editor/agent settings). .gitattributes
+# currently holds only a merge driver for the ignored graphify-out/graph.json;
+# .graphifyignore configures a tool that isn't part of the shipped grader.
+.claude/
+.gitattributes
+.graphifyignore
+
+# Grader-development notes. Documents the fixtures/ + tools/ workflow, none of
+# which ships, so in a clone it would describe directories that aren't there.
+CLAUDE.md
