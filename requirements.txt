@@ -1,0 +1,15 @@
+# Claudenette's Python dependencies. Both are on PyPI; install them into a
+# checkout-local .deps/ directory with `python3 install.py`, as the README
+# shows. This needs neither sudo nor the system pip/venv packages.
+#
+# Pinned on purpose. norminette decides what counts as a norm error, so a
+# release can change verdicts with no change here: 3.3.60 began exiting 1 on
+# the Makefiles claudenette used to hand it, and every Makefile-keyed exercise
+# went NORM ERR on fresh installs. Bump these deliberately, after a fixture
+# sweep with the new version.
+#
+# The other two tools claudenette needs - cc and nm - are your system's C
+# toolchain and can't be installed from here. If you're doing the C Piscine
+# you already have them; if not, see the README.
+rich==15.0.0
+norminette==3.3.60

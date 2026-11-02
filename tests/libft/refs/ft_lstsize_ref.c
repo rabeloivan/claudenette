@@ -1,0 +1,14 @@
+#include "libft_ref.h"
+
+unsigned int	ft_lstsize(t_list *lst)
+{
+	unsigned int	count;
+
+	count = 0;
+	while (lst)
+	{
+		count++;
+		lst = lst->next;
+	}
+	return (count);
+}

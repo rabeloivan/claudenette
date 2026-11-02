@@ -1,0 +1,80 @@
+from tests.piscine_inputs import extend_cases
+import os
+
+from utils.compiler import compile_source
+from utils.runner import run_test_case
+from utils.ui import (
+    print_command_execution,
+    print_exercise_result,
+    print_test_fail,
+    print_test_pass,
+)
+
+
+def is_prime(nb):
+    if nb < 2:
+        return False
+    i = 2
+    while i * i <= nb:
+        if nb % i == 0:
+            return False
+        i += 1
+    return True
+
+
+def expected_find_next_prime(nb):
+    if nb < 2:
+        return 2
+    n = nb
+    while not is_prime(n):
+        n += 1
+    return n
+
+
+def run_C05_ex07(student_file):
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    harness_path = os.path.join(test_dir, "ex07_harness.c")
+    exe_path = "./find_next_prime"
+
+    if not compile_source([student_file, harness_path], exe_path):
+        return False
+
+    print_command_execution(exe_path)
+
+    # 2147483646 and 2147483647 both answer INT_MAX, itself prime. Getting
+    # there tests divisors up to its square root, 46340 - and a bound written
+    # `i * i <= nb` overflows int at i = 46341, keeps looping, and finds
+    # "divisors" or runs out of time. ex06 has this case; this one did not.
+    test_cases = [0, 1, 2, 4, 8, 25, -100, 100, 7918, 2147483646, 2147483647]
+    test_cases = extend_cases("C05", "ex07", test_cases)
+
+    passed_count = 0
+    total_count = len(test_cases)
+
+    for i, nb in enumerate(test_cases, 1):
+        expected = expected_find_next_prime(nb)
+        actual, err, code = run_test_case(exe_path, input_data=str(nb))
+        desc = f"ft_find_next_prime(nb={nb})"
+
+        try:
+            actual_val = int(actual)
+        except ValueError:
+            actual_val = None
+
+        if actual_val == expected:
+            print_test_pass(i, f"{desc}: returned {actual_val} as expected")
+            passed_count += 1
+        else:
+            print_test_fail(
+                i,
+                f"{desc}: returned value not as expected",
+                expected=expected,
+                actual=actual_val,
+            )
+
+    print_exercise_result("ex07/ft_find_next_prime.c", passed_count, total_count)
+
+    if os.path.exists(exe_path):
+        os.remove(exe_path)
+
+    return passed_count == total_count

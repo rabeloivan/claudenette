@@ -1,0 +1,42 @@
+# Public release: only the grader runtime, usage README and license.
+# Everything else stays local, including docs/, tools/, fixtures/, subjects/,
+# Graphify outputs/config, upstream copies, dependencies and AI configuration.
+/*
+!/.gitignore
+!/README.md
+!/LICENSE
+!/main.py
+!/install.py
+!/requirements.txt
+!/tests/
+!/utils/
+
+# Runtime source and the exact data files read by C09 and shell00 tests.
+/tests/**
+!/tests/**/
+!/tests/**/*.py
+!/tests/**/*.c
+!/tests/**/*.h
+!/tests/shell00/ex07/resources/a.txt
+!/tests/shell00/ex07/resources/sw.diff
+/utils/**
+!/utils/**/
+!/utils/**/*.py
+
+# Never publish generated artifacts, reference submissions or AI metadata,
+# even when they appear inside an otherwise permitted source directory.
+__pycache__/
+*.py[cod]
+.DS_Store
+fixtures/
+fixture/
+.agents/
+.claude/
+.codex/
+.cursor/
+.idea/
+.vscode/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+SKILL.md

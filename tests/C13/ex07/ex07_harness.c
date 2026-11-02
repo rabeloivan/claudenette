@@ -1,0 +1,72 @@
+#include "ft_btree.h"
+#include "../harness_utils.h"
+#include "../../free_tracker.h"
+#include <stdlib.h>
+#include <unistd.h>
+
+void	btree_apply_by_level(t_btree *root,
+			void (*applyf)(void *item, int current_level, int is_first_elem));
+
+static int	g_count = 0;
+
+static void	record(void *item, int current_level, int is_first_elem)
+{
+	if (g_count > 0)
+		write(1, ",", 1);
+	h_put_int((int)(long)item);
+	write(1, ":", 1);
+	h_put_int(current_level);
+	write(1, ":", 1);
+	h_put_int(is_first_elem);
+	g_count++;
+}
+
+int	main(int argc, char **argv)
+{
+	char	buffer[4096];
+	int		bytes_read;
+	int		count;
+	int		pos;
+	int		i;
+	int		values[64];
+	t_btree	*root;
+
+	if (h_null_callback_mode(argc, argv))
+	{
+		values[0] = 4;
+		values[1] = 2;
+		values[2] = 6;
+		root = h_build_tree(values, 3);
+		btree_apply_by_level(root, NULL);
+		h_check_redzones();
+		write(1, "OK\n", 3);
+		return (0);
+	}
+	bytes_read = read(0, buffer, 4095);
+	if (bytes_read < 0)
+		return (0);
+	buffer[bytes_read] = '\0';
+	count = atoi(buffer);
+	pos = 0;
+	while (buffer[pos] != '\n')
+		pos++;
+	pos++;
+	i = 0;
+	while (i < count)
+	{
+		values[i] = atoi(buffer + pos);
+		while (buffer[pos] != ',' && buffer[pos] != '\0')
+			pos++;
+		if (buffer[pos] == ',')
+			pos++;
+		i++;
+	}
+	root = h_build_tree(values, count);
+	btree_apply_by_level(root, &record);
+	/*
+	** The queue is written after its last allocation, so the redzones
+	** have to be checked here - malloc/free would never see the overflow.
+	*/
+	h_check_redzones();
+	return (0);
+}

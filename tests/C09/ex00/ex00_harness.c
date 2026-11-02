@@ -1,0 +1,56 @@
+#include <unistd.h>
+#include <stdlib.h>
+
+void	ft_putchar(char c);
+void	ft_swap(int *a, int *b);
+void	ft_putstr(char *str);
+int		ft_strlen(char *str);
+int		ft_strcmp(char *s1, char *s2);
+
+static void	put_int(int n)
+{
+	char	c;
+
+	if (n < 0)
+	{
+		write(1, "-", 1);
+		n = -n;
+	}
+	if (n >= 10)
+		put_int(n / 10);
+	c = '0' + (n % 10);
+	write(1, &c, 1);
+}
+
+int	main(int argc, char **argv)
+{
+	int	a;
+	int	b;
+
+	a = 5;
+	b = 9;
+	if (argc > 1)
+	{
+		if (atoi(argv[1]) == 1) ft_swap(NULL, &b);
+		if (atoi(argv[1]) == 2) ft_swap(&a, NULL);
+		if (atoi(argv[1]) == 3) ft_putstr(NULL);
+		if (atoi(argv[1]) == 4) ft_strlen(NULL);
+		if (atoi(argv[1]) == 5) ft_strcmp(NULL, "a");
+		if (atoi(argv[1]) == 6) ft_strcmp("a", NULL);
+		return (0);
+	}
+	ft_putchar('A');
+	ft_putstr("BC");
+	ft_swap(&a, &b);
+	if (a == 9 && b == 5)
+		ft_putstr("SWAPOK");
+	else
+		ft_putstr("SWAPKO");
+	put_int(ft_strlen("hello"));
+	if (ft_strcmp("abc", "abd") < 0 && ft_strcmp("abd", "abc") > 0
+		&& ft_strcmp("abc", "abc") == 0)
+		ft_putstr("CMPOK");
+	else
+		ft_putstr("CMPKO");
+	return (0);
+}
