@@ -152,7 +152,9 @@ def run_null_contracts(module, student_file, options=None):
     if module in ('C12', 'libft'):
         includes = '#include "' + ('libft.h' if module == 'libft' else 'ft_list.h') + '"\n'
         field = 'content' if module == 'libft' else 'data'
-        setup += f'    t_list *list = malloc(sizeof(*list));\n    t_list *otherlist = malloc(sizeof(*otherlist));\n    if (!list || !otherlist) return 3;\n    list->{field} = &value; list->next = NULL;\n    otherlist->{field} = &value; otherlist->next = NULL;\n    (void)list; (void)otherlist;\n'
+        # Part 2 probes must work before the student declares Part 3's t_list.
+        if module == 'C12' or name.startswith('ft_lst'):
+            setup += f'    t_list *list = malloc(sizeof(*list));\n    t_list *otherlist = malloc(sizeof(*otherlist));\n    if (!list || !otherlist) return 3;\n    list->{field} = &value; list->next = NULL;\n    otherlist->{field} = &value; otherlist->next = NULL;\n    (void)list; (void)otherlist;\n'
         if module == 'C12':
             # The subject mandates old-style comparator prototypes.
             flags.append('-Wno-deprecated-non-prototype')
