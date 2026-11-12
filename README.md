@@ -214,6 +214,10 @@ reading the output:
 claudenette && git push
 ```
 
+This optional shell command runs `git push` only when Claudenette exits with 0.
+That means `PASSED` under the scoring rules above, which can occur from 50/100.
+`git push` sends commits you have already created to your configured remote.
+
 ### Statuses
 
 | Status | Meaning |
@@ -254,7 +258,7 @@ ordinary cases pass. Check the case description before interpreting the result.
 rush00's real grading is a random per-team draw across five variants with a bonus
 above 100%, so it prints its own summary and scores `0` or `100`–`125`.
 
-### libft
+## libft
 
 libft is graded from the root of your project repository — the directory holding your
 `Makefile`, `libft.h` and `ft_*.c` files — because that is where the subject says they
