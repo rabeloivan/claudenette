@@ -352,8 +352,7 @@ layouts. The public runtime needs the installed compiler, make, ar and nm.
 
 ## Known gaps
 
-- Validation on an actual 42 campus machine remains pending, including
-  installation without sudo. Automated macOS and Ubuntu checks have run.
+- Automated macOS and Ubuntu checks have run.
 - Every exercise in every module now has a test — nothing reports `TODO`.
 - `norminette` is pinned in `requirements.txt` (currently 3.3.60), because two point
   releases disagreed on files that aren't C. If 42 moves to a newer norminette,
