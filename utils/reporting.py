@@ -8,16 +8,9 @@ from dataclasses import dataclass, field
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
-from utils.runner import RUNTIME_ISSUES
+from utils.runner import RUNTIME_ISSUES, TestUnavailable
 
 console = Console()
-EXPLANATIONS = {
-    'ABSENT': 'required file missing', 'TODO': 'test not implemented',
-    'NORM ERR': 'coding-style errors', 'FORBIDDEN FN': 'forbidden function calls',
-    'EXTRA FILES': 'unexpected files', 'CRASH': 'tester error',
-    'SKIPPED': 'some checks were skipped; verdict incomplete',
-    'KO': 'test or compilation failed', 'OK': 'all checks passed',
-}
 
 
 @dataclass
@@ -34,6 +27,7 @@ class Report:
     cases: list = field(default_factory=list)
     problems: list = field(default_factory=list)
     sections: list = field(default_factory=list)
+    concise: bool = False
 
 
 @dataclass
@@ -45,18 +39,24 @@ class Group:
     passed: int = 0
     total: int = 0
     success: bool = True
+    unavailable: bool = False
+    concise: bool = False
 
 
 _REPORT = ContextVar('exercise_report', default=None)
 _GROUP = ContextVar('function_report', default=None)
 _name_width = 18
 _header_shown = False
-_statuses = set()
 _rush_footer = None
 
 
 def current_group():
     return _GROUP.get()
+
+
+def concise_cases():
+    report, group = _REPORT.get(), _GROUP.get()
+    return bool((report and report.concise) or (group and group.concise))
 
 
 def record_case(index, passed, description, expected=None, actual=None):
@@ -99,15 +99,18 @@ def case_section(name):
 
 
 @contextlib.contextmanager
-def function_report(name, enabled=True):
+def function_report(name, enabled=True, concise=False):
     """Merge behavior, boundary, NULL and allocation stages of one function."""
     if not enabled or current_group() is not None:
         yield None
         return
-    group = Group()
+    group = Group(concise=concise)
     token = _GROUP.set(group)
     try:
         yield group
+    except TestUnavailable:
+        group.unavailable = True
+        raise
     except BaseException:
         group.success = False
         raise
@@ -115,14 +118,14 @@ def function_report(name, enabled=True):
         _GROUP.reset(token)
         from utils.ui import print_exercise_result
         # A failed extra build is a real failure, but not an invented test case.
-        print_exercise_result(name, group.passed, group.total, failed=not group.success)
+        if not group.unavailable:
+            print_exercise_result(name, group.passed, group.total, failed=not group.success)
 
 
 def start_compact_report(names):
     global _name_width, _header_shown, _rush_footer
     _name_width = min(30, max(12, *(len(name) for name in names)))
     _header_shown = False
-    _statuses.clear()
     _rush_footer = None
 
 
@@ -130,12 +133,12 @@ def compact_report(name, status, report=None, cases=None):
     global _header_shown
     report = report or Report()
     cases = report.cases if cases is None else cases
-    _statuses.add(status)
     passed = sum(case.passed for case in cases)
     failed = len(cases) - passed
     tests = Text()
     compilation_failed = any(kind == 'compile' for kind, _ in report.problems)
     missing_implementation = any(kind == 'implementation' for kind, _ in report.problems)
+    unavailable = any(kind == 'environment' for kind, _ in report.problems)
     if cases:
         if len(cases) <= 24:
             for case in cases:
@@ -147,15 +150,18 @@ def compact_report(name, status, report=None, cases=None):
         tests.append(f'  ({passed}/{len(cases)})')
         if compilation_failed:
             tests.append('  compilation failed', 'deep_pink2')
+        if unavailable:
+            tests.append('  test unavailable', 'yellow')
     else:
         tests.append('not implemented' if missing_implementation else
+                     'test unavailable' if unavailable else
                      'compilation failed' if compilation_failed else '—')
-    color = 'sea_green2' if status == 'OK' else 'yellow' if status == 'SKIPPED' else 'deep_pink2'
+    color = 'sea_green2' if status == 'OK' else 'yellow' if status in ('SKIPPED', 'UNKNOWN') else 'deep_pink2'
     table = Table(box=None, padding=(0, 1), pad_edge=False, show_header=not _header_shown,
                   width=min(92, console.width))
     table.add_column('FUNCTION', width=_name_width, no_wrap=False)
-    table.add_column('TESTS', ratio=1)
-    table.add_column('RESULT', width=12, no_wrap=True)
+    table.add_column('TESTS', ratio=1, justify='center')
+    table.add_column('RESULT', width=12, no_wrap=True, justify='right')
     table.add_row(Text(name), tests, Text(status, style=color))
     console.print(table)
     _header_shown = True
@@ -163,20 +169,17 @@ def compact_report(name, status, report=None, cases=None):
 
 def finish_compact_report():
     console.print()
-    console.print(Text('Tests: ✓ passed  ✖ failed  ×N count of tests', style='bright_black'))
-    for status in EXPLANATIONS:
-        if status in _statuses:
-            console.print(Text(f'{status}: {EXPLANATIONS[status]}', style='bright_black'))
+    console.print(Text('TESTS: ✓ passed  ✖ failed  ×N count of tests', style='bright_black'))
     if _rush_footer:
         console.print()
         console.print(Text(_rush_footer))
 
 
 @contextlib.contextmanager
-def exercise_report(result, compact=False):
+def exercise_report(result, compact=False, concise=False):
     global _rush_footer
     RUNTIME_ISSUES.clear()
-    report = Report()
+    report = Report(concise=concise)
     token = _REPORT.set(report)
     capture = io.StringIO()
     try:

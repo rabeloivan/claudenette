@@ -183,14 +183,33 @@ def run_null_contracts(module, student_file, options=None):
         if not compile_source(sources, exe, flags=flags):
             print_exercise_result(name + ' NULL safety', 0, len(cases))
             return False
+        if module == 'libft':
+            from utils.ui import CasePresentation, print_test_section
+            print_test_section('NULL safety')
         passed = 0
         for index, (description, _) in enumerate(cases):
+            if module == 'libft':
+                call = description.removeprefix('NULL safety: ')
+                arguments = call.partition('(')[2].rstrip(')').split(',')
+                null_positions = [str(i + 1) for i, arg in enumerate(arguments) if arg.strip() == 'NULL']
+                title = 'NULL input' if null_positions == ['1'] else 'NULL argument ' + ', '.join(null_positions)
             _, err, code = run_test_case(exe, args=[str(index)])
             if code == 0:
                 passed += 1
-                print_test_pass(index + 1, description + ': no crash or hang')
+                if module == 'libft':
+                    print_test_pass(index + 1, description + ': no crash or hang',
+                                    presentation=CasePresentation(
+                                        title, 'no crash or hang'))
+                else:
+                    print_test_pass(index + 1, description + ': no crash or hang')
             else:
                 reason = 'timeout' if err == 'TIMEOUT' else f'exit {code}'
-                print_test_fail(index + 1, description, actual=reason)
+                if module == 'libft':
+                    print_test_fail(index + 1, description, actual=reason,
+                                    presentation=CasePresentation(
+                                        title, call=call,
+                                        expected='no crash or hang', actual=reason))
+                else:
+                    print_test_fail(index + 1, description, actual=reason)
         print_exercise_result(name + ' NULL safety', passed, len(cases))
         return passed == len(cases)

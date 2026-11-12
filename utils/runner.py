@@ -8,6 +8,10 @@ _, core_hard_limit = resource.getrlimit(resource.RLIMIT_CORE)
 resource.setrlimit(resource.RLIMIT_CORE, (0, core_hard_limit))
 RUNTIME_ISSUES = []
 
+
+class TestUnavailable(RuntimeError):
+    """A required test cannot establish a verdict in the current environment."""
+
 # Make the allocator hand back DIRTY memory to whatever we run.
 #
 # tests/free_tracker.c poisons malloc for harness-built binaries, but the

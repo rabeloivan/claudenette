@@ -47,13 +47,17 @@ def _harness_flags():
     return HARNESS_FLAGS + ([_STACK_INIT_FLAG] if _stack_init_supported[0] else [])
 
 
-def compile_source(source_files, output_name, flags=None):
+def compile_source(source_files, output_name, flags=None, announce=True):
     if flags is None:
         flags = ["-Wall", "-Wextra", "-Werror"]
 
     command = ["cc"] + flags + _harness_flags() + source_files + ["-o", output_name]
     student_file = os.path.basename(source_files[0])
-    flags_str = " ".join(flags)
+    # Include directories configure the harness, not the readable command
+    # summary. Keep them in the actual compiler invocation.
+    display_flags = [flag for index, flag in enumerate(flags)
+                     if not flag.startswith('-I') and (index == 0 or flags[index - 1] != '-I')]
+    flags_str = " ".join(display_flags)
     # The displayed command is a readable summary, not a reproduction - it
     # already names only the first source, omitting the harness and any
     # reference objects. An output path is shortened to its basename only when
@@ -66,7 +70,8 @@ def compile_source(source_files, output_name, flags=None):
     display_cmd = f"cc {flags_str} {student_file} -o {display_output}"
 
     group = current_group()
-    announce = group is None or group.compilations == 0
+    first_build = group is None or group.compilations == 0
+    announce = announce and first_build
     if group is not None:
         group.compilations += 1
     if announce:
@@ -76,7 +81,7 @@ def compile_source(source_files, output_name, flags=None):
         result = subprocess.run(command, capture_output=True, text=True)
 
         if result.returncode != 0:
-            if not announce:
+            if not first_build:
                 console.print("[deep_pink2]Compilation failed for additional checks:[/deep_pink2]")
             console.print("[deep_pink2]cc: ERROR[/deep_pink2]")
             clean_err = result.stderr.replace(source_files[0], student_file)

@@ -1,4 +1,5 @@
 import atexit
+from dataclasses import replace
 import os
 import re
 import shutil
@@ -16,8 +17,9 @@ from utils.ui import (
     print_exercise_result,
     print_test_fail,
     print_test_pass,
+    print_test_section,
 )
-from .result_messages import success_message, failure_values
+from .result_messages import success_message, failure_values, case_presentation
 
 LIBFT_DIR = os.path.dirname(os.path.abspath(__file__))
 FREE_TRACKER = os.path.join(os.path.dirname(LIBFT_DIR), "free_tracker.c")
@@ -240,12 +242,29 @@ def run_harness_cases(
 
         print_command_execution(f"{function_name}_test")
 
+        if display_name.endswith(' allocation failures'):
+            section = 'Allocation failures'
+        elif display_name.endswith(' boundaries'):
+            section = 'Boundary tests'
+        elif function_name in ('ft_isalpha', 'ft_isdigit', 'ft_isalnum', 'ft_isascii', 'ft_isprint'):
+            section = 'Character classification'
+        elif function_name in ('ft_toupper', 'ft_tolower'):
+            section = 'Character conversion'
+        else:
+            section = 'Functional tests'
+        print_test_section(section)
+
         passed_count = 0
         for i, case in enumerate(cases, 1):
             args, stdin, expected, description = case[:4]
             expected_err = case[4] if len(case) > 4 else None
             actual, err, _code = run_test_case(
                 exe_path, input_data=stdin, args=list(args), timeout=case[5] if len(case)>5 else 2
+            )
+            presentation = case_presentation(
+                function_name, args, description, expected, actual,
+                stderr=err if expected_err is not None else None,
+                campaign=harness_source is not None,
             )
             if actual != expected:
                 message, wanted, received = failure_values(
@@ -257,6 +276,7 @@ def run_harness_cases(
                     message,
                     expected=wanted,
                     actual=received,
+                    presentation=presentation,
                 )
             elif expected_err is not None and err != expected_err:
                 print_test_fail(
@@ -264,13 +284,16 @@ def run_harness_cases(
                     f"{description}: not as expected on stderr",
                     expected=expected_err,
                     actual=err,
+                    presentation=replace(presentation,
+                        expected=repr(expected_err), actual=repr(err),
+                        details=(('Stream', 'stderr'),)),
                 )
             else:
                 print_test_pass(i, success_message(
                     function_name, args, description, actual,
                     stderr=err if expected_err is not None else None,
                     campaign=harness_source is not None,
-                ))
+                ), presentation=presentation)
                 passed_count += 1
 
         print_exercise_result(display_name, passed_count, len(cases))

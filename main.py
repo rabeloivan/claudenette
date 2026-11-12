@@ -65,8 +65,9 @@ except ImportError:
 
 from utils.reporting import (
     exercise_report, function_report, start_compact_report, finish_compact_report,
+    record_problem,
 )
-from utils.runner import RUNTIME_ISSUES
+from utils.runner import RUNTIME_ISSUES, TestUnavailable
 from tests.libft.harness_runner import check_student_definition
 from tests.null_contracts import run_null_contracts
 from tests.memory_contracts import run_memory_contracts
@@ -267,6 +268,7 @@ def get_current_exercise_mapping():
         "shell00",
         "shell01",
         "libft",
+        "ft_printf",
     }
 
     if re.match(r"^C(0[0-9]|1[0-3])$", current_dir):
@@ -312,7 +314,7 @@ if __name__ == "__main__":
     if test_map is None:
         error_msg = (
             f"Current directory '{dir_name}' does not match expected pattern "
-            "(C00~13, rush00, rush01, rush02, bsq, shell00, shell01, libft)."
+            "(C00~13, rush00, rush01, rush02, bsq, shell00, shell01, libft, ft_printf)."
         )
         fix_msg = "Please navigate to an appropriate directory to run tests."
         console.print(f"[deep_pink2]{error_msg:^{BANNER_WIDTH}s}[/deep_pink2]")
@@ -352,7 +354,7 @@ if __name__ == "__main__":
         filtered_paths = []
 
         for path in sorted_paths:
-            if any(t in path for t in targets):
+            if any(t in path or t in test_map[path][0] for t in targets):
                 filtered_paths.append(path)
 
         if not filtered_paths:
@@ -384,7 +386,8 @@ if __name__ == "__main__":
         start_compact_report([test_map[path][0] for path in sorted_paths])
 
     for student_file_path in sorted_paths:
-        with exercise_report(lambda: results[-1], compact=compact):
+        with exercise_report(lambda: results[-1], compact=compact,
+                             concise=dir_name.lower() in ('libft', 'ft_printf')):
             mapping_entry = test_map[student_file_path]
             if len(mapping_entry) == 4:
                 ex_name, run_func, allowed_fns, options = mapping_entry
@@ -398,6 +401,12 @@ if __name__ == "__main__":
             strict_symbols = options.get("strict_symbols")
             if options.get("bonus", False):
                 bonus_names.add(ex_name)
+            if options.get("requires_mandatory") and any(
+                status != "OK" for name, status in results if name not in bonus_names
+            ):
+                console.print("[bright_black]Bonus requires a complete mandatory pass.[/bright_black]")
+                results.append((ex_name, "KO"))
+                continue
 
             # TODO is checked BEFORE the file-exists test on purpose. An exercise
             # claudenette has no test for can't be graded whether the student
@@ -419,12 +428,14 @@ if __name__ == "__main__":
                 last_was_grouped = True
                 continue
 
-            if not os.path.exists(student_file_path):
+            required_paths = list(dict.fromkeys([student_file_path] + options.get("source_files", [])))
+            missing_paths = [path for path in required_paths if not os.path.exists(path)]
+            if missing_paths:
                 if not last_was_grouped:
                     console.print("-" * BANNER_WIDTH, style="bright_black")
                     print()
 
-                console.print(f"[deep_pink2]Missing file: {student_file_path}[/deep_pink2]")
+                console.print(f"[deep_pink2]Missing file: {', '.join(missing_paths)}[/deep_pink2]")
                 results.append((ex_name, "ABSENT"))
                 print()
                 last_was_grouped = True
@@ -459,7 +470,10 @@ if __name__ == "__main__":
                 else:
                     allowed_set = [own_name] + explicit
 
-            files_passed = check_no_extra_files(check_dir, allowed_set) if allowed_set else True
+            files_passed = check_no_extra_files(
+                check_dir, allowed_set, turn_in_files=options.get('turn_in_files'),
+                recursive=options.get('recursive_extra_files', False),
+            ) if allowed_set else True
 
             if skip_precheck:
                 # Norminette and "allowed functions" are C-specific concepts
@@ -489,33 +503,40 @@ if __name__ == "__main__":
                 # NORM ERR on a fresh install. skip_precheck would be the wrong
                 # fix: it also tells preflight() the module needs no toolchain,
                 # and these tests do need norminette, cc and nm for their sources.
-                key_is_source = os.path.isdir(student_file_path) or student_file_path.endswith(
+                key_is_source = bool(options.get("source_files")) or os.path.isdir(student_file_path) or student_file_path.endswith(
                     (".c", ".h")
                 )
-                if skip_norm or not key_is_source:
+                if skip_norm or not key_is_source or options.get("runner_checks_norm"):
                     norm_passed = True
                 else:
-                    norm_passed = check_norminette(
-                        student_file_path, extra_rules=extra_norm_rules
-                    )
-                if not skip_norm and not os.path.isdir(student_file_path):
+                    norm_passed = True
+                    for source in options.get("source_files", [student_file_path]):
+                        norm_passed = check_norminette(source, extra_rules=extra_norm_rules) and norm_passed
+                if not skip_norm and not os.path.isdir(student_file_path) and not options.get("source_files"):
                     for header in turned_in_headers(student_file_path, test_map):
                         norm_passed = (
                             check_norminette(header, extra_rules=extra_norm_rules)
                             and norm_passed
                         )
 
-                if skip_fn or not key_is_source:
+                if skip_fn or not key_is_source or options.get("runner_checks_symbols"):
                     fns_passed = True
                 else:
-                    fns_passed = check_allowed_functions(
-                        student_file_path,
-                        allowed_fns,
-                        extra_flags=extra_compile_flags,
-                        strict_symbols=strict_symbols,
-                    )
+                    fns_passed = True
+                    for source in options.get("source_files", [student_file_path]):
+                        fns_passed = check_allowed_functions(
+                            source, allowed_fns, extra_flags=extra_compile_flags,
+                            strict_symbols=strict_symbols,
+                        ) and fns_passed
 
                 checks_bypassed = skip_norm or skip_fn
+            runner_norm_results = {}
+
+            def check_runner_norm(source):
+                runner_norm_results[os.path.abspath(source)] = check_norminette(
+                    source, extra_rules=extra_norm_rules,
+                )
+
             # run_func is student-controlled code and test code alike - either
             # side can raise (a harness that isn't defensive about malformed
             # program output, e.g. tests/C12/ex15, or a genuine bug in the test
@@ -524,6 +545,7 @@ if __name__ == "__main__":
             # why. Catch it, report it plainly, and let the existing priority
             # ladder below fold it in like any other failure.
             crashed = False
+            unavailable = False
             with function_report(os.path.splitext(os.path.basename(student_file_path))[0],
                                  enabled=student_file_path.endswith(".c") and dir_name.lower() != "rush00") as group:
                 try:
@@ -551,6 +573,13 @@ if __name__ == "__main__":
                                 files_passed and norm_passed and fns_passed and not checks_bypassed
                             )
                             tests_passed = run_func(student_file_path, precheck_ok=rush00_precheck_ok)
+                        elif options.get("runner_checks_norm"):
+                            tests_passed = run_func(
+                                student_file_path, check_symbols=not skip_fn,
+                                norm_check=None if skip_norm else check_runner_norm,
+                            )
+                        elif options.get("runner_checks_symbols"):
+                            tests_passed = run_func(student_file_path, check_symbols=not skip_fn)
                         else:
                             tests_passed = run_func(student_file_path)
                         boundary_passed = run_boundary_contracts(test_module.__name__.split(".")[-1], student_file_path)
@@ -560,6 +589,12 @@ if __name__ == "__main__":
                         tests_passed = tests_passed and null_passed and memory_passed and not RUNTIME_ISSUES
                     if group is not None:
                         group.success = tests_passed
+                except TestUnavailable as exc:
+                    unavailable = True
+                    if group is not None:
+                        group.unavailable = True
+                    record_problem('environment', str(exc))
+                    console.print(f'Test unavailable: {exc}', style='yellow', markup=False)
                 except Exception as exc:
                     if group is not None:
                         group.success = False
@@ -577,6 +612,14 @@ if __name__ == "__main__":
                     print()
                     traceback.print_exc()
 
+            # Complete source prechecks even if an unavailable/crashed runner
+            # stopped before reaching its header or runtime presentation stage.
+            if options.get("runner_checks_norm") and not skip_norm:
+                for source in options.get("source_files", [student_file_path]):
+                    if os.path.abspath(source) not in runner_norm_results:
+                        check_runner_norm(source)
+                norm_passed = all(runner_norm_results.values())
+
             if not files_passed:
                 results.append((ex_name, "EXTRA FILES"))
             elif not norm_passed:
@@ -585,6 +628,8 @@ if __name__ == "__main__":
                 results.append((ex_name, "FORBIDDEN FN"))
             elif crashed:
                 results.append((ex_name, "CRASH"))
+            elif unavailable:
+                results.append((ex_name, "UNKNOWN"))
             elif not tests_passed:
                 results.append((ex_name, "KO"))
             elif checks_bypassed:
@@ -662,7 +707,7 @@ if __name__ == "__main__":
         f"\n[bright_black]Test completed. Total elapsed time: {elapsed:.2f}s.[/bright_black]",
         highlight=False,
     )
-    trailer = "Claudenette is a test automation tool and may make mistakes. Rely on your own tests."
+    trailer = "Claudenette is a test automation tool. Its score is not an official Moulinette grade."
     console.print(f"\n[orange3]{trailer:^{BANNER_WIDTH}s}[/orange3]", highlight=False)
 
     sys.exit(EXIT_CODES.get(status, EXIT_NO_VERDICT))

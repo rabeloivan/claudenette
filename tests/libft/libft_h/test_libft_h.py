@@ -6,10 +6,12 @@ import tempfile
 
 from utils.functions import get_defined_functions
 from utils.ui import (
+    CasePresentation,
     print_command_execution,
     print_exercise_result,
     print_test_fail,
     print_test_pass,
+    print_test_section,
 )
 
 from ..harness_runner import uses_restrict
@@ -144,6 +146,7 @@ def run_libft_libft_h(student_file):
     try:
         total = 1 + len(required) + 1
         passed = 0
+        print_test_section('Header validation')
 
         # 1. Self-contained. Evaluation mains typically include only libft.h,
         #    so a header that leans on its includer - say, using size_t with no
@@ -152,7 +155,8 @@ def run_libft_libft_h(student_file):
         #    per-function checks below to mean anything.
         ok, error = _compile(student_dir, build_dir, "", "standalone")
         if ok:
-            print_test_pass(1, "libft.h compiles on its own")
+            print_test_pass(1, "libft.h compiles on its own",
+                            presentation=CasePresentation('Standalone compilation'))
             passed += 1
         else:
             print_test_fail(
@@ -160,6 +164,8 @@ def run_libft_libft_h(student_file):
                 "libft.h does not compile on its own, so a test that includes "
                 "only libft.h fails",
                 actual=error or None,
+                presentation=CasePresentation('Standalone compilation',
+                    expected='self-contained libft.h', actual=error or 'compilation failed'),
             )
             print_exercise_result("libft.h", 0, total)
             return False
@@ -176,7 +182,8 @@ def run_libft_libft_h(student_file):
             expected = _prototype(name, ret, params)
             if all_ok or _compile(student_dir, build_dir,
                                   _pointer_check(name, ret, params), name)[0]:
-                print_test_pass(index, f"{name} declared with the subject's prototype")
+                print_test_pass(index, f"{name} declared with the subject's prototype",
+                                presentation=CasePresentation(name + ' prototype', 'matches subject'))
                 passed += 1
                 continue
 
@@ -196,14 +203,19 @@ def run_libft_libft_h(student_file):
                 description = (
                     f"{name}: your sources define it, but libft.h does not declare it"
                 )
-            print_test_fail(index, description, expected=expected)
+            print_test_fail(index, description, expected=expected,
+                            presentation=CasePresentation(name + ' prototype',
+                                expected=expected, actual=description))
 
         # 3. "it is forbidden to include [restrict] in your own prototypes" -
         #    the typed pointers above ignore qualifiers, so this is separate.
         if uses_restrict(student_file):
-            print_test_fail(total, "libft.h declares a prototype with `restrict`, which the subject forbids")
+            print_test_fail(total, "libft.h declares a prototype with `restrict`, which the subject forbids",
+                            presentation=CasePresentation('Prototype qualifiers',
+                                expected='no restrict', actual='restrict qualifier declared'))
         else:
-            print_test_pass(total, "libft.h declares no prototype with `restrict`")
+            print_test_pass(total, "libft.h declares no prototype with `restrict`",
+                            presentation=CasePresentation('Prototype qualifiers', 'no restrict'))
             passed += 1
 
         print_exercise_result("libft.h", passed, total)

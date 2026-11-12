@@ -6,7 +6,7 @@ kept visible, and range failures identify the first differing input.
 import re
 from itertools import groupby, zip_longest
 
-from utils.ui import display_str
+from utils.ui import CasePresentation, display_str
 
 RANGE_RULES = {
     'ft_isalpha': 'letters return 1, other values return 0',
@@ -149,3 +149,81 @@ def failure_values(function, args, description, expected, actual, campaign=False
                      'value other than 0 or 1' if right == '?' and not conversion else right)
             return f'{description}; first mismatch at input {label}', left, right
     return description, readable_result(function, expected), readable_result(function, actual)
+
+
+def case_presentation(function, args, description, expected, actual,
+                      stderr=None, campaign=False):
+    """Describe an existing harness case without changing its comparison."""
+    message, wanted, got = failure_values(function, args, description, expected, actual,
+                                         campaign=campaign)
+    string_results = {'ft_strdup', 'ft_itoa', 'ft_strmapi', 'ft_striteri',
+                      'ft_putchar_fd', 'ft_putstr_fd', 'ft_putendl_fd', 'ft_putnbr_fd'}
+    if not campaign and function in string_results:
+        wanted, got = display_str(expected, 100), display_str(actual, 100)
+    if not campaign and function in ('ft_substr', 'ft_strjoin', 'ft_strtrim'):
+        wanted = display_str(expected[1:-1], 100) if expected.startswith('[') else expected
+        got = display_str(actual[1:-1], 100) if actual.startswith('[') and actual.endswith(']') else display_str(actual, 100)
+    call = function + '(...)'
+    title = description.removeprefix(function + ': ')
+    result = ''
+    if function in RANGE_RULES and not campaign:
+        start, end = map(int, args)
+        title = ('EOF and unsigned char range' if start == -1 else
+                 'ASCII range' if (start, end) == (0, 127) else 'Integer range')
+        bounds = f'EOF and 0..{end}' if start == -1 else f'{start}..{end}'
+        result = f'{end - start + 1} inputs ({bounds})'
+        call = f'{function}(c), for c in {bounds}'
+    elif not campaign:
+        direct = {'ft_strlen', 'ft_strdup', 'ft_atoi', 'ft_itoa', 'ft_substr',
+                  'ft_strjoin', 'ft_strtrim', 'ft_split', 'ft_strchr', 'ft_strrchr',
+                  'ft_strncmp', 'ft_strnstr'}
+        if function in direct:
+            numeric = {'ft_itoa': (0,), 'ft_substr': (1, 2), 'ft_strchr': (1,),
+                       'ft_strrchr': (1,), 'ft_strncmp': (2,), 'ft_strnstr': (2,)}
+            call = function + '(' + ', '.join(
+                str(arg) if i in numeric.get(function, ()) else display_str(arg, 64)
+                for i, arg in enumerate(args)) + ')'
+        if description.startswith(function + '('):
+            shown = [display_str(arg, 12) for arg in args]
+            if function in ('ft_strlen', 'ft_strdup'):
+                title = ('Empty string' if not args[0] else 'Single character' if len(args[0]) == 1
+                         else f'Long string — {len(args[0])} characters' if len(args[0]) > 64
+                         else 'String ' + shown[0])
+            elif function == 'ft_substr':
+                title = f'Source {shown[0]}, start {args[1]}, len {args[2]}'
+            elif function in ('ft_strjoin', 'ft_strtrim', 'ft_split'):
+                verb = {'ft_strjoin': 'Join', 'ft_strtrim': 'Trim', 'ft_split': 'Split'}[function]
+                title = f'{verb} {shown[0]} / {shown[1]}'
+            elif function in ('ft_strncmp', 'ft_strnstr'):
+                title = f'{shown[0]} / {shown[1]}, limit {args[2]}'
+            elif function in ('ft_strchr', 'ft_strrchr'):
+                title = f'String {shown[0]}, byte {args[1]}'
+            elif function == 'ft_itoa':
+                title = 'Integer ' + args[0]
+            else:
+                title = 'Input ' + ', '.join(shown)
+        success = success_message(function, args, description, actual, stderr=stderr) \
+            if actual == expected else description
+        result = success[len(description):].lstrip(' ;') if success.startswith(description) else ''
+        if function == 'ft_lstnew':
+            result = 'new node, original content, next NULL'
+    elif ': ' in title:
+        title, result = title.split(': ', 1)
+    if campaign and not args:
+        title = 'Allocation failure positions handled'
+    if campaign and title.startswith(function + '('):
+        match = re.fullmatch(re.escape(function) + r'\((.*?)\)(?: output (.*))?', title)
+        if match:
+            title = match[1]
+            result = 'output ' + match[2] if match[2] is not None else result
+    if not campaign and actual == expected:
+        if function in ('ft_strdup', 'ft_itoa', 'ft_strmapi', 'ft_striteri'):
+            result = 'output ' + display_str(actual, 16)
+        elif function in ('ft_substr', 'ft_strjoin', 'ft_strtrim') and actual.startswith('['):
+            result = 'output ' + display_str(actual[1:-1], 16)
+        elif function == 'ft_lstmap':
+            result = 'new nodes, source preserved, no leaks'
+        elif function == 'ft_split':
+            result = 'output ' + actual.rsplit('|', 1)[-1] + ' words'
+    title = title[:1].upper() + title[1:]
+    return CasePresentation(title, result, call, str(wanted), str(got), (('Scenario', message),))

@@ -52,10 +52,8 @@ from .ft_toupper.test_ft_toupper import run_libft_ft_toupper
 # ("All files must be placed at the root of your repository", and again in a
 # red warning box). Two consequences for the extra-files check:
 #
-#   1. check_no_extra_files() uses os.listdir with no dotfile exemption, so
-#      .git and .gitignore have to be named here or every key reports them.
-#      They are listed individually rather than as ".*" on purpose, so a stray
-#      .DS_Store is still caught the way it is everywhere else.
+#   1. .git is repository metadata. It is accepted explicitly but omitted from
+#      the displayed deliverables. Other dotfiles are checked normally.
 #   2. A file key checks its own directory allowing at least its own basename,
 #      and here every key shares one directory. So each entry needs the FULL
 #      list or it would report its 40-odd siblings as extras - hence one
@@ -67,13 +65,11 @@ from .ft_toupper.test_ft_toupper import run_libft_ft_toupper
 ALLOWED_FILES = [
     "Makefile",
     "libft.h",
-    "libft.a",
     "ft_*.c",
-    "*.o",
     "README.md",
     ".git",
-    ".gitignore",
 ]
+TURN_IN_FILES = [name for name in ALLOWED_FILES if name != '.git']
 
 # (function name, run_func, allowed external functions, extra options)
 #
@@ -182,7 +178,7 @@ def get_advisories():
 def _build(entries):
     mapping = {}
     for name, run_func, allowed_fns, extra in entries:
-        options = {"allowed_files": ALLOWED_FILES}
+        options = {"allowed_files": ALLOWED_FILES, "turn_in_files": TURN_IN_FILES}
         options.update(extra)
         mapping[f"{name}.c"] = (name, run_func, allowed_fns, options)
     return mapping
@@ -194,10 +190,11 @@ def get_mapping():
     mapping = {
         "Makefile": (
             "Makefile", run_libft_makefile, [],
-            {"allowed_files": ALLOWED_FILES, "skip_precheck": True},
+            {"allowed_files": ALLOWED_FILES, "turn_in_files": TURN_IN_FILES, "skip_precheck": True},
         ),
         "libft.h": (
-            "libft.h", run_libft_libft_h, [], {"allowed_files": ALLOWED_FILES},
+            "libft.h", run_libft_libft_h, [],
+            {"allowed_files": ALLOWED_FILES, "turn_in_files": TURN_IN_FILES},
         ),
     }
     mapping.update(_build(_PART1 + _PART2 + _PART3))

@@ -1,11 +1,13 @@
 import re
+from dataclasses import dataclass
+from itertools import zip_longest
 
 from rich.console import Console
 from rich.markup import escape
 from rich.text import Text
 
 from utils import __version__
-from utils.reporting import current_group, record_case, record_summary
+from utils.reporting import concise_cases, current_group, record_case, record_summary
 
 # CLAUDENETTE_ART prints at 92 columns wide - used as the fixed delimiter for
 # every centered/wrapped line in this file, so output looks the same
@@ -43,6 +45,9 @@ def print_header():
 
 def print_command_execution(command):
     group = current_group()
+    # File prechecks have their own cache; different paths may share a basename.
+    if command.startswith(('norminette ', 'python -m norminette ', 'checking ')):
+        group = None
     if group is not None:
         if command in group.commands:
             return
@@ -51,7 +56,34 @@ def print_command_execution(command):
         if group.announced:
             return
         group.announced = True
-    console.print(f"[bright_black]Executing: {escape(command)}[/bright_black]", highlight=False)
+    _print_wrapped('Executing: ', Text(command, style='bright_black'), 'bright_black')
+
+
+def print_test_stage(blank_before=False):
+    """Separate a project's test stages and restart their displayed numbering."""
+    group = current_group()
+    if group is not None:
+        group.index = 0
+    if blank_before:
+        console.print()
+    console.print(Text('-' * BANNER_WIDTH, style='bright_black'))
+    console.print()
+
+
+@dataclass(frozen=True)
+class CasePresentation:
+    title: str
+    result: str = ''
+    call: str = ''
+    expected: str | None = None
+    actual: str | None = None
+    details: tuple = ()
+
+
+def print_test_section(title):
+    if concise_cases():
+        console.print()
+        console.print(Text(title, style='bold'))
 
 
 def _wrap_styled_entries(prefix, entries, width):
@@ -130,28 +162,15 @@ def display_str(s, limit=80):
     return f"'{escaped}'"
 
 
-def _wrap_words(text, first_line_budget, width):
-    # Plain greedy word-wrap, except a continuation line always gets exactly
-    # one leading space (never rstripped later) rather than starting flush
-    # left - confirmed against real reference output (3 of 4 worked examples
-    # wrap exactly this way: the break line has no trailing space, the next
-    # line starts with a single space, distinguishing it from a brand new
-    # test line). A single word longer than `width` is left to overflow on
-    # its own line rather than being broken mid-word.
-    words = text.split(" ")
-    lines = []
-    current = ""
-    budget = first_line_budget
-    for word in words:
-        candidate = current + (" " if current else "") + word
-        if current and len(candidate) > budget:
-            lines.append(current)
-            current = word
-            budget = width - 1
-        else:
-            current = candidate
-    lines.append(current)
-    return lines
+def _print_wrapped(prefix, content, style):
+    """Align continuation lines with the text following a command/case label."""
+    for index, line in enumerate(content.wrap(console, BANNER_WIDTH - len(prefix), overflow='fold')):
+        line.rstrip()
+        lead = prefix if index == 0 else ' ' * len(prefix)
+        rendered = Text()
+        rendered.append(lead, style=style)
+        rendered.append_text(line)
+        console.print(rendered, soft_wrap=True, highlight=False)
 
 
 def _case_description(description, passed):
@@ -164,45 +183,58 @@ def _case_description(description, passed):
     return text + (" as expected" if passed else " not as expected")
 
 
-def print_test_pass(index, description):
+def print_test_pass(index, description, presentation=None):
     description = _case_description(description, True)
     index = record_case(index, True, description)
     prefix = f" ✓ [{index}] "
-    lines = _wrap_words(description, BANNER_WIDTH - len(prefix), BANNER_WIDTH)
-    console.print(
-        f"[sea_green2]{escape(prefix)}[/sea_green2]"
-        f"[sea_green2]{escape(lines[0])}[/sea_green2]",
-        highlight=False,
-    )
-    for line in lines[1:]:
-        console.print(f"[sea_green2] {escape(line)}[/sea_green2]", highlight=False)
+    if concise_cases():
+        view = presentation or CasePresentation(description.removesuffix(' as expected'))
+        if view.result:
+            title_width = 44 - len(prefix)
+            titles = Text(view.title).wrap(console, title_width, overflow='fold')
+            values = Text(view.result).wrap(console, BANNER_WIDTH - 46, overflow='fold')
+            for line, (title, value) in enumerate(zip_longest(titles, values, fillvalue='')):
+                lead = prefix if line == 0 else ' ' * len(prefix)
+                text = lead + str(title).ljust(title_width) + '  ' + str(value)
+                console.print(Text(text.rstrip(), style='sea_green2'), soft_wrap=True)
+        else:
+            _print_wrapped(prefix, Text(view.title, style='sea_green2'), 'sea_green2')
+        return
+    _print_wrapped(prefix, Text(description, style='sea_green2'), 'sea_green2')
 
 
-def print_test_fail(index, description, expected=None, actual=None):
+def print_test_fail(index, description, expected=None, actual=None, presentation=None):
     description = _case_description(description, False)
     index = record_case(index, False, description, expected, actual)
+    if concise_cases():
+        view = presentation or CasePresentation(
+            description.removesuffix(' not as expected'),
+            expected=None if expected is None else str(expected),
+            actual=None if actual is None else str(actual),
+        )
+        _print_wrapped(f" ✖ [{index}] ", Text(view.title, style='deep_pink2'), 'deep_pink2')
+        indent = ' ' * (len(str(index)) + 6)
+        fields = [('Call', view.call or None), ('Expected', view.expected),
+                  ('Got', view.actual if view.actual else actual), *view.details]
+        width = max(len(label) for label, _ in fields)
+        for label, value in fields:
+            if value is not None:
+                _print_wrapped(indent + (label + ':').ljust(width + 2), Text(str(value)), 'deep_pink2')
+        console.print()
+        return
     # Keep the scenario; show expected/actual only when the caller has them.
-    console.print(
-        f"[deep_pink2] ✖ [/deep_pink2]"
-        f"[deep_pink2][{index}][/deep_pink2] "
-        f"[deep_pink2]{escape(description)}[/deep_pink2]",
-        highlight=False,
-    )
+    _print_wrapped(f" ✖ [{index}] ", Text(description, style='deep_pink2'), 'deep_pink2')
     if expected is not None:
-        console.print(
-            f"       [deep_pink2]expected:[/deep_pink2] {escape(display_str(str(expected), limit=200))}",
-            highlight=False,
-        )
+        _print_wrapped('       expected: ', Text(display_str(str(expected), limit=200)), 'deep_pink2')
     if actual is not None:
-        console.print(
-            f"       [deep_pink2]got:     [/deep_pink2] {escape(display_str(str(actual), limit=200))}",
-            highlight=False,
-        )
+        _print_wrapped('       got:      ', Text(display_str(str(actual), limit=200)), 'deep_pink2')
 
 
 def print_exercise_result(exercise_name, passed, total, failed=False):
     if record_summary(exercise_name, passed, total):
         return
+    if concise_cases():
+        console.print()
     exercise_name = escape(exercise_name)
     if total == 0:
         console.print(
@@ -226,15 +258,14 @@ def print_exercise_result(exercise_name, passed, total, failed=False):
 def _status_color(status):
     if status == "OK":
         return "sea_green2"
-    if status == "SKIPPED":
+    if status in ("SKIPPED", "UNKNOWN"):
         return "yellow"
     return "deep_pink2"
 
 
 def print_final_summary(results, bonus_names=None, compact=False):
     """Print the Result/score/Status block; returns the Status word."""
-    if not compact:
-        console.print(Text("-" * BANNER_WIDTH, style="bright_black"))
+    console.print(Text("-" * BANNER_WIDTH, style="bright_black"))
 
     # bonus_names: entries the subject evaluates separately from the mandatory
     # part. They are reported on their own
@@ -260,6 +291,7 @@ def print_final_summary(results, bonus_names=None, compact=False):
     # UNKNOWN rather than a PASSED we can't stand behind or a FAILED that
     # would wrongly imply the code is broken.
     any_skipped = False
+    any_unknown = any(status == 'UNKNOWN' for _, status in results)
 
     for name, status in results:
         color = _status_color(status)
@@ -276,10 +308,7 @@ def print_final_summary(results, bonus_names=None, compact=False):
             counting_score = False
 
     print()
-    if compact:
-        ok_count = sum(1 for _, state in results if state == "OK")
-        console.print(f"Result:      {ok_count}/{len(results)} checks OK", highlight=False)
-    elif entries:
+    if entries:
         for line in _wrap_styled_entries("Result:      ", entries, BANNER_WIDTH):
             console.print(line)
 
@@ -305,6 +334,9 @@ def print_final_summary(results, bonus_names=None, compact=False):
     if not results:
         status_str = "UNKNOWN"
         console.print("Status:      [yellow]UNKNOWN (mandatory part not graded)[/yellow]")
+    elif any_unknown:
+        status_str = "UNKNOWN"
+        console.print("Status:      [yellow]UNKNOWN (required tests unavailable)[/yellow]")
     elif any_skipped:
         status_str = "UNKNOWN"
         console.print(f"Final score: [yellow]{score}/100[/yellow]", highlight=False)
