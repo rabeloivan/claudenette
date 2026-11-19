@@ -416,6 +416,11 @@ including Alelievr, Fsoares, Tripouille, War Machine and its C Piscine suites.
 Credits include Francisco / fsoares-, alelievr, Tripouille, cacharle, jtoty, badam and their
 contributors. Claudenette uses its own harnesses and interface.
 
+The report style — banner, per-exercise results and a score that counts only the
+leading run of passing exercises — follows [mini-moulinette](https://github.com/k11q/mini-moulinette)
+by Khairul Haaziq (k11q), MIT license. Claudenette reimplements that presentation; no
+mini-moulinette code is included.
+
 The public distribution contains the grader, its C harnesses and the small
 runtime resources used by C09 and shell00. Internal documentation, developer
 tools, reference submissions, subject PDFs, knowledge graphs and AI setup remain
