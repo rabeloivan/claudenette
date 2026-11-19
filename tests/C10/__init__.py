@@ -10,13 +10,13 @@ def get_mapping():
             "ex00",
             run_C10_ex00,
             ["close", "open", "read", "write"],
-            {"allowed_files": ["*.c", "*.h", "*.o", "ft_display_file"]},
+            {"allowed_files": ["*.c", "*.h"]},
         ),
         "ex01/Makefile": (
             "ex01",
             run_C10_ex01,
             ["close", "open", "read", "write", "strerror", "basename"],
-            {"allowed_files": ["*.c", "*.h", "*.o", "ft_cat"]},
+            {"allowed_files": ["*.c", "*.h"]},
         ),
         "ex02/Makefile": (
             "ex02",
@@ -25,7 +25,7 @@ def get_mapping():
             # Its several-file cases are compared against the real tail(1) -
             # see ex03 below for why that is declared rather than assumed.
             {
-                "allowed_files": ["*.c", "*.h", "*.o", "ft_tail"],
+                "allowed_files": ["*.c", "*.h"],
                 "requires_tools": ["tail"],
             },
         ),
@@ -39,7 +39,7 @@ def get_mapping():
             # instructions instead of the test reporting KO, which would blame
             # the student for claudenette's own missing dependency.
             {
-                "allowed_files": ["*.c", "*.h", "*.o", "ft_hexdump"],
+                "allowed_files": ["*.c", "*.h"],
                 "requires_tools": ["hexdump"],
             },
         ),

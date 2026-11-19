@@ -57,7 +57,8 @@ def run_shell00_ex02(student_file):
                 mtimes = {os.path.normpath(m.name): m.mtime for m in tf.getmembers()}
             extracted_ok = True
         except Exception as e:
-            check(False, "exo2.tar extracting cleanly", actual=str(e))
+            # Name the archive as the student turned it in.
+            check(False, f"{os.path.basename(student_file)} extracting cleanly", actual=str(e))
             extracted_ok = False
 
         if extracted_ok:

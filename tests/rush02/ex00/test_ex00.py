@@ -19,7 +19,7 @@ from utils.ui import (
 # literal string back would just repeat the description, not add data.
 _BOILERPLATE_VALUES = ("Error\n", "Dict Error\n")
 
-from ...make_utils import check_makefile_rules, run_make
+from ...make_utils import check_makefile_rules, run_make, scratch_exercise
 from ..numbers import (
     default_dictionary,
     dictionary_to_file_content,
@@ -57,6 +57,12 @@ def _write_dict(path, dictionary):
 
 
 def run_rush02_ex00(student_file):
+    # Build in a copy of the exercise, as Libft and ft_printf do.
+    with scratch_exercise(student_file) as copied:
+        return _run_rush02_ex00(copied)
+
+
+def _run_rush02_ex00(student_file):
     # student_file is "ex00/Makefile" - "Files to turn in: Makefile and all
     # the necessary files" gives no fixed name for the .c/.h sources, only
     # the Makefile and the resulting binary name (rush-02) are pinned down

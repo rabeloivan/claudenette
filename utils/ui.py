@@ -7,7 +7,10 @@ from rich.markup import escape
 from rich.text import Text
 
 from utils import __version__
-from utils.reporting import concise_cases, current_group, record_case, record_summary
+from utils.reporting import (
+    concise_cases, current_group, current_presenter, present_case, record_case, record_summary,
+    staged_report,
+)
 
 # CLAUDENETTE_ART prints at 92 columns wide - used as the fixed delimiter for
 # every centered/wrapped line in this file, so output looks the same
@@ -43,8 +46,26 @@ def print_header():
     print()
 
 
-def print_command_execution(command):
+def print_command_execution(command, failed_build=False):
+    presenter = current_presenter()
+    if presenter is not None:
+        command = presenter.command(command)
+        if command is None:
+            return
+    staged = staged_report()
+    kind = _stage_kind(command) if staged is not None else None
+    # A successful harness build is an internal step; a failed one is shown.
+    if kind == 'build' and not failed_build:
+        return
     group = current_group()
+    if group is not None and group.symbols_name and command.startswith('nm -u '):
+        command = re.sub(r'^nm -u \S+ \(', f'nm -u {group.symbols_name} sources (', command)
+    if group is not None and group.norm_root is not None and command.startswith(
+            ('norminette ', 'python -m norminette ')):
+        if group.norm_announced:
+            return
+        group.norm_announced = True
+        command = command.rsplit(' ', 1)[0] + ' .'
     # File prechecks have their own cache; different paths may share a basename.
     if command.startswith(('norminette ', 'python -m norminette ', 'checking ')):
         group = None
@@ -56,13 +77,54 @@ def print_command_execution(command):
         if group.announced:
             return
         group.announced = True
+    if staged is not None:
+        if staged.stage == kind and kind in ('norm', 'symbols'):
+            return
+        begin_stage(kind)
+        staged.stage_fresh = False
     _print_wrapped('Executing: ', Text(command, style='bright_black'), 'bright_black')
 
 
-def print_test_stage(blank_before=False):
-    """Separate a project's test stages and restart their displayed numbering."""
+def _stage_kind(command):
+    if command.startswith('checking for extra files (turn-in:'):
+        return 'project-delivery'
+    if command.startswith('checking for extra files'):
+        return 'delivery'
+    if command.startswith(('norminette ', 'python -m norminette ')):
+        return 'norm'
+    if command.startswith('nm '):
+        return 'symbols'
+    if command.startswith('cc '):
+        return 'build'
+    if command == 'make' or command.startswith(('make ', 'sh libft_creator.sh')):
+        return 'make'
+    if command.startswith('checking '):
+        return 'header'
+    return 'runtime'
+
+
+def begin_stage(kind, after_silent_stage=False):
+    """Separate one stage of a unit from the previous stage, as ft_printf does."""
+    staged = staged_report()
+    if staged is None or staged.stage == kind:
+        return
+    gap_needed = staged.case_open or staged.blank_pending or (
+        # Delivery checks print their own gap; other announcements may print nothing.
+        after_silent_stage and staged.stage not in (None, 'delivery', 'project-delivery'))
+    # A project-wide turn-in check stands apart from the first function's block.
+    if staged.stage is not None and (staged.stages == 'delimited' or staged.stage == 'project-delivery'):
+        print_test_stage(blank_before=gap_needed, reset_index=False)
+        staged.stage_fresh = True
+    elif gap_needed:
+        console.print()
+    staged.stage = kind
+    staged.case_open = staged.blank_pending = False
+
+
+def print_test_stage(blank_before=False, reset_index=True):
+    """Separate project stages, optionally restarting their displayed numbering."""
     group = current_group()
-    if group is not None:
+    if group is not None and reset_index:
         group.index = 0
     if blank_before:
         console.print()
@@ -80,9 +142,16 @@ class CasePresentation:
     details: tuple = ()
 
 
-def print_test_section(title):
+def print_test_section(title, separate=False):
     if concise_cases():
-        console.print()
+        staged = staged_report()
+        fresh = staged is not None and staged.stage_fresh
+        if staged is not None:
+            staged.stage_fresh = staged.blank_pending = False
+        if separate:
+            print_test_stage(blank_before=True, reset_index=False)
+        elif not fresh:
+            console.print()
         console.print(Text(title, style='bold'))
 
 
@@ -183,11 +252,19 @@ def _case_description(description, passed):
     return text + (" as expected" if passed else " not as expected")
 
 
+def _case_printed():
+    staged = staged_report()
+    if staged is not None:
+        staged.case_open = True
+
+
 def print_test_pass(index, description, presentation=None):
     description = _case_description(description, True)
     index = record_case(index, True, description)
     prefix = f" ✓ [{index}] "
     if concise_cases():
+        presentation = presentation or present_case(description, True)
+        _case_printed()
         view = presentation or CasePresentation(description.removesuffix(' as expected'))
         if view.result:
             title_width = 44 - len(prefix)
@@ -207,6 +284,8 @@ def print_test_fail(index, description, expected=None, actual=None, presentation
     description = _case_description(description, False)
     index = record_case(index, False, description, expected, actual)
     if concise_cases():
+        presentation = presentation or present_case(description, False, expected, actual)
+        _case_printed()
         view = presentation or CasePresentation(
             description.removesuffix(' not as expected'),
             expected=None if expected is None else str(expected),
@@ -233,6 +312,14 @@ def print_test_fail(index, description, expected=None, actual=None, presentation
 def print_exercise_result(exercise_name, passed, total, failed=False):
     if record_summary(exercise_name, passed, total):
         return
+    presenter = current_presenter()
+    if presenter is not None:
+        exercise_name = presenter.summary_name(exercise_name)
+    staged = staged_report()
+    if staged is not None:
+        # The summary already ends with the gap the next block needs.
+        staged.blank_pending = staged.case_open = False
+        staged.stage_fresh = True
     if concise_cases():
         console.print()
     exercise_name = escape(exercise_name)
@@ -268,8 +355,8 @@ def print_final_summary(results, bonus_names=None, compact=False):
     console.print(Text("-" * BANNER_WIDTH, style="bright_black"))
 
     # bonus_names: entries the subject evaluates separately from the mandatory
-    # part. They are reported on their own
-    # line and contribute nothing to the score - a missing or broken bonus
+    # part. They are reported on their own line and can only add to a complete
+    # mandatory score - a missing or broken bonus
     # must not reduce a complete mandatory submission, and because mapping
     # keys are scored in sorted order, an interleaved bonus failure would
     # otherwise break the streak partway through the mandatory functions.
@@ -320,13 +407,19 @@ def print_final_summary(results, bonus_names=None, compact=False):
             bonus_entries.append((plain, f"[{color}]{escape(name)}: {status}[/{color}]"))
             if status == "SKIPPED":
                 any_skipped = True
-        print()
         for line in _wrap_styled_entries("Bonus:       ", bonus_entries, BANNER_WIDTH):
             console.print(line)
 
     score = (
         int((passed_for_score / total_exercises) * 100) if total_exercises > 0 else 0
     )
+    # 42 awards up to 25 extra points, only on top of a complete mandatory part.
+    bonus_ok = sum(1 for _, s in bonus_results if s in ("OK", "SKIPPED"))
+    bonus_total = len(bonus_results)
+    bonus_points = 0
+    if bonus_total and results and score == 100 and not any_skipped and not any_unknown:
+        bonus_points = 25 * bonus_ok // bonus_total
+    final_score = score + bonus_points
 
     # A filter naming only bonus keys grades none
     # of the mandatory part: there is no score to give, and "0/100 FAILED"
@@ -343,7 +436,7 @@ def print_final_summary(results, bonus_names=None, compact=False):
         console.print("Status:      [yellow]UNKNOWN (checks skipped)[/yellow]")
     else:
         color = "sea_green2" if score >= 50 else "deep_pink2"
-        console.print(f"Final score: [{color}]{score}/100[/{color}]", highlight=False)
+        console.print(f"Final score: [{color}]{final_score}/100[/{color}]", highlight=False)
         status_str = "PASSED" if score >= 50 else "FAILED"
         console.print(f"Status:      [{color}]{status_str}[/{color}]")
 
@@ -352,9 +445,10 @@ def print_final_summary(results, bonus_names=None, compact=False):
         # verdict is reported against that rule rather than on its own. It is
         # printed whatever the status above - skipped checks used to return
         # before reaching it, so --skip-norm on libft showed no tally at all.
-        bonus_ok = sum(1 for _, s in bonus_results if s in ("OK", "SKIPPED"))
-        bonus_total = len(bonus_results)
-        if bonus_ok < bonus_total:
+        if bonus_points:
+            bonus_color = "sea_green2" if bonus_ok == bonus_total else "yellow"
+            note = f" (awarded: +{bonus_points})"
+        elif bonus_ok < bonus_total:
             bonus_color, note = "deep_pink2", ""
         elif not results:
             bonus_color, note = "yellow", " (the mandatory part was not graded)"
@@ -363,9 +457,9 @@ def print_final_summary(results, bonus_names=None, compact=False):
         elif any_skipped:
             bonus_color, note = "yellow", " (awarded only if the skipped checks pass)"
         else:
-            bonus_color, note = "sea_green2", " (awarded)"
+            bonus_color, note = "deep_pink2", " (not awarded)"
         console.print(
-            f"Bonus:       [{bonus_color}]{bonus_ok}/{bonus_total}{note}[/{bonus_color}]",
+            f"Bonus score: [{bonus_color}]{bonus_ok}/{bonus_total}{note}[/{bonus_color}]",
             highlight=False,
         )
 

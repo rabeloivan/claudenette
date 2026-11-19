@@ -213,14 +213,12 @@ def run_C_rush00(student_file, precheck_ok=True):
 
     with case_section('main.c'):
         main_ok = check_main_compiles(main_c, student_file, variants[0][1])
-    print()
 
     variant_results = []
     for variant, variant_file in variants:
         with case_section(f'rush0{variant}'):
             passed = run_variant(student_file, variant, variant_file)
         variant_results.append((variant, passed))
-        print()
 
     # main.c not compiling is a hard, unconditional "doesn't compile ->
     # score 0" gate (a required turn-in file regardless of which variant),

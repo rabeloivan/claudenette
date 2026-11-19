@@ -21,6 +21,20 @@ static size_t h_used;
 static int (*h_call)(const char *, ...);
 static ssize_t h_write_left = -1;
 
+#ifdef PF_TRACK_VA
+int h_va_open;
+static int h_va_left;
+
+static void note_va_cleanup(void)
+{
+    if (!h_va_left)
+        h_va_left = h_va_open;
+    h_va_open = 0;
+}
+#else
+# define note_va_cleanup() ((void)0)
+#endif
+
 static void test_unavailable(const char *reason)
 {
     fprintf(stderr, "CLAUDENETTE_TEST_UNAVAILABLE: %s\n", reason);
@@ -144,9 +158,11 @@ int main(int argc, char **argv)
     h_alloc_begin(failure);
 #endif
     actual_return = invoke_case(index);
+    note_va_cleanup();
     for (int repeat = 1; repeat < repeats; repeat++)
     {
         int result = invoke_case(index);
+        note_va_cleanup();
         if (result != expected_return)
             actual_return = result;
     }
@@ -160,8 +176,13 @@ int main(int argc, char **argv)
     if (dup2(saved_stdout, STDOUT_FILENO) < 0)
         test_unavailable("cannot restore stdout after capture");
     close(saved_stdout);
+#ifdef PF_TRACK_VA
+    size = snprintf(metadata, sizeof(metadata), "%d %d %ld %d %d\n",
+        expected_return, actual_return, attempts, live, h_va_left);
+#else
     size = snprintf(metadata, sizeof(metadata), "%d %d %ld %d\n",
         expected_return, actual_return, attempts, live);
+#endif
     if (write(STDOUT_FILENO, metadata, (size_t)size) != size)
         test_unavailable("cannot report the captured return values");
 #ifndef PF_TRACK_MEMORY

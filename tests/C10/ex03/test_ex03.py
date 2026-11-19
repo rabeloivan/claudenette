@@ -18,6 +18,7 @@ from ..build_utils import (
     check_makefile_rules,
     cleanup_build,
 )
+from ...make_utils import scratch_exercise
 
 BINARY = "ft_hexdump"
 
@@ -30,6 +31,12 @@ def real_hexdump(paths, cwd=None):
 
 
 def run_C10_ex03(student_file):
+    # Build in a copy of the exercise, as Libft and ft_printf do.
+    with scratch_exercise(student_file) as copied:
+        return _run_C10_ex03(copied)
+
+
+def _run_C10_ex03(student_file):
     student_dir = os.path.dirname(student_file)
 
     checks_ok = check_all_c_files(

@@ -7,6 +7,6 @@ def get_mapping():
             "rush02",
             run_rush02_ex00,
             ["write", "malloc", "free", "open", "read", "close"],
-            {"allowed_files": ["*.c", "*.h", "*.o", "rush-02", "*.dict"]},
+            {"allowed_files": ["*.c", "*.h", "*.dict"]},
         ),
     }

@@ -12,6 +12,6 @@ def get_mapping():
             "bsq",
             run_C_bsq,
             ["open", "close", "read", "write", "malloc", "free", "exit"],
-            {"allowed_files": ["Makefile", "*.c", "*.h", "*.o", "bsq"]},
+            {"allowed_files": ["Makefile", "*.c", "*.h"]},
         ),
     }

@@ -12,7 +12,7 @@ from utils.ui import (
     print_test_pass,
 )
 
-from ...make_utils import check_makefile_rules, run_make
+from ...make_utils import check_makefile_rules, run_make, scratch_exercise
 
 WHITESPACE = (" ", "\t", "\n", "\v", "\f", "\r")
 BINARY = "do-op"
@@ -62,6 +62,12 @@ def expected_do_op(v1_str, op, v2_str):
 
 
 def run_C11_ex05(student_file):
+    # Build in a copy of the exercise, as Libft and ft_printf do.
+    with scratch_exercise(student_file) as copied:
+        return _run_C11_ex05(copied)
+
+
+def _run_C11_ex05(student_file):
     student_dir = os.path.dirname(student_file)
 
     c_files = sorted(glob.glob(os.path.join(student_dir, "*.c")))

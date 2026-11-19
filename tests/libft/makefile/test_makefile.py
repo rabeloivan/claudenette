@@ -4,6 +4,7 @@ import shutil
 from utils.ui import (
     CasePresentation,
     print_command_execution,
+    print_test_section,
     print_exercise_result,
     print_test_fail,
     print_test_pass,
@@ -50,6 +51,7 @@ def run_libft_makefile(student_file):
 
     try:
         print_command_execution("make (in a scratch copy of the sources)")
+        print_test_section("Makefile checks")
 
         # The flags are read from `make -n` on the untouched tree, which lists
         # every command the build would run - @-silenced recipes included - and

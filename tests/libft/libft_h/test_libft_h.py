@@ -137,10 +137,7 @@ def run_libft_libft_h(student_file):
     required = PROTOTYPES
     turned_in = _turned_in(student_dir)
 
-    print_command_execution(
-        f"cc {' '.join(CFLAGS)} -I . -c libft.h "
-        f"(checking it declares all {len(required)} mandatory functions)"
-    )
+    print_command_execution('checking libft.h')
 
     build_dir = tempfile.mkdtemp(prefix="claudenette_libft_h_")
     try:

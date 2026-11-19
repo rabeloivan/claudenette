@@ -28,6 +28,14 @@ class Report:
     problems: list = field(default_factory=list)
     sections: list = field(default_factory=list)
     concise: bool = False
+    presenter: object = None
+    # 'delimited': ft_printf layout, a delimiter between stages of one project.
+    # 'blocks': Libft layout, one delimited block per function, stages split by a blank line.
+    stages: str | None = None
+    stage: str | None = None
+    stage_fresh: bool = False
+    case_open: bool = False
+    blank_pending: bool = False
 
 
 @dataclass
@@ -41,6 +49,9 @@ class Group:
     success: bool = True
     unavailable: bool = False
     concise: bool = False
+    norm_root: str | None = None
+    symbols_name: str | None = None
+    norm_announced: bool = False
 
 
 _REPORT = ContextVar('exercise_report', default=None)
@@ -54,9 +65,65 @@ def current_group():
     return _GROUP.get()
 
 
+def current_presenter():
+    report = _REPORT.get()
+    return report.presenter if report is not None else None
+
+
+def staged_report():
+    """The running report when its unit uses the ft_printf stage layout."""
+    report = _REPORT.get()
+    return report if report is not None and report.stages else None
+
+
+def defer_stage_blank():
+    """Keep consecutive file results together; the stage's end adds one gap."""
+    report = staged_report()
+    if report is None:
+        return False
+    report.blank_pending = True
+    return True
+
+
+@contextlib.contextmanager
+def grouped_norm_report(root):
+    """Group announcements while retaining each original per-file Norm check."""
+    group = current_group()
+    if group is None:
+        yield
+        return
+    previous = group.norm_root, group.norm_announced
+    group.norm_root, group.norm_announced = str(root), False
+    try:
+        yield
+    finally:
+        group.norm_root, group.norm_announced = previous
+
+
+@contextlib.contextmanager
+def grouped_symbols_report(name):
+    """Show one allowed-function announcement for a project's per-file checks."""
+    group = current_group()
+    if group is None:
+        yield
+        return
+    previous, group.symbols_name = group.symbols_name, name
+    try:
+        yield
+    finally:
+        group.symbols_name = previous
+
+
 def concise_cases():
     report, group = _REPORT.get(), _GROUP.get()
     return bool((report and report.concise) or (group and group.concise))
+
+
+def present_case(description, passed, expected=None, actual=None):
+    report = _REPORT.get()
+    if report is not None and report.presenter is not None:
+        return report.presenter(description, passed, expected, actual)
+    return None
 
 
 def record_case(index, passed, description, expected=None, actual=None):
@@ -132,6 +199,9 @@ def start_compact_report(names):
 def compact_report(name, status, report=None, cases=None):
     global _header_shown
     report = report or Report()
+    if not _header_shown and (name.startswith('ft_printf') or report.stages):
+        from utils.ui import print_test_stage
+        print_test_stage(reset_index=False)
     cases = report.cases if cases is None else cases
     passed = sum(case.passed for case in cases)
     failed = len(cases) - passed
@@ -171,35 +241,53 @@ def finish_compact_report():
     console.print()
     console.print(Text('TESTS: ✓ passed  ✖ failed  ×N count of tests', style='bright_black'))
     if _rush_footer:
-        console.print()
-        console.print(Text(_rush_footer))
+        from utils.ui import print_rush00_summary
+        print_rush00_summary(*_rush_footer)
+
+
+def _close_stage(report):
+    if report.blank_pending:
+        report.blank_pending = False
+        print()
 
 
 @contextlib.contextmanager
-def exercise_report(result, compact=False, concise=False):
+def exercise_report(result, compact=False, concise=False, presenter=None, stages=None):
     global _rush_footer
     RUNTIME_ISSUES.clear()
-    report = Report(concise=concise)
+    report = Report(concise=concise, presenter=presenter, stages=stages)
     token = _REPORT.set(report)
     capture = io.StringIO()
     try:
         if compact:
             with contextlib.redirect_stdout(capture), contextlib.redirect_stderr(capture):
-                yield
+                try:
+                    yield
+                finally:
+                    if presenter is not None:
+                        presenter.flush_prechecks()
+                    _close_stage(report)
         else:
-            yield
+            try:
+                yield
+            finally:
+                if presenter is not None:
+                    presenter.flush_prechecks()
+                _close_stage(report)
     finally:
         _REPORT.reset(token)
     if not compact:
         return
-    output = capture.getvalue()
+    output = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', capture.getvalue())
     match = re.search(r'^Result:(.*?)^Status:\s*(\S+)', output, re.M | re.S)
     if match and re.search(r'^Final score:.*%', match.group(0), re.M):
         statuses = dict(re.findall(r'(rush0\d):\s*(OK|KO)', match.group(1)))
         for name, cases, problems in report.sections:
             status = statuses.get(name, 'OK' if all(c.passed for c in cases) and not problems else 'KO')
-            compact_report(name, status, Report(cases=cases, problems=problems))
-        score = re.search(r'^Final score:.*$', output, re.M)
-        _rush_footer = score.group(0) + '\nStatus:      ' + match.group(2)
+            compact_report(name, status, Report(cases=cases, problems=problems, stages=report.stages))
+        score = re.search(r'^Final score:\s*(\d+)%', output, re.M)
+        variants = [(int(name[-1]), status == 'OK') for name, status in statuses.items()]
+        _rush_footer = variants, int(score[1])
     else:
-        compact_report(*result(), report=report)
+        name, status = result()
+        compact_report(presenter.name if presenter is not None else name, status, report=report)

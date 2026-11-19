@@ -2,16 +2,19 @@
 from pathlib import Path
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
 
 from tests.libft.build_utils import archive_defines, archive_is_ar, mentions_libtool, run_make
 from utils.functions import COMPILER_ARTIFACTS, SYMBOL_ALIASES
+from utils.runner import TestUnavailable
 from utils.ui import CasePresentation
 
 
 NAME = 'libftprintf.a'
+VA_TRACKER = Path(__file__).resolve().parent / 'va_tracker.h'
 
 
 def find_header(root):
@@ -112,6 +115,40 @@ def check_archive_symbols(archive):
             defined.add(parts[-1].lstrip('_'))
     forbidden = undefined - defined - {'malloc', 'free', 'write'} - COMPILER_ARTIFACTS
     return not forbidden, 'forbidden external symbols: ' + ', '.join(sorted(forbidden))
+
+
+def _archive_tracks_va(archive):
+    result = subprocess.run(['nm', '-g', str(archive)], capture_output=True, text=True, timeout=30)
+    return any(line.split()[-2:] in (['U', 'h_va_open'], ['U', '_h_va_open'])
+               for line in result.stdout.splitlines())
+
+
+def build_va_archive(root, directory, part):
+    """Build a scratch archive whose va_list macros are counted, or refuse to judge it."""
+    compilers = directory / 'compilers'
+    compilers.mkdir(parents=True)
+    for name in ('cc', 'gcc', 'clang'):
+        real = shutil.which(name)
+        if real:
+            wrapper = compilers / name
+            wrapper.write_text(f'#!/bin/sh\nexec {shlex.quote(real)} '
+                               f'-include {shlex.quote(str(VA_TRACKER))} "$@"\n')
+            wrapper.chmod(0o755)
+    environment = {**os.environ, 'PATH': f'{compilers}{os.pathsep}{os.environ.get("PATH", "")}'}
+    target = [] if part == 'mandatory' else ['bonus']
+    # An absolute compiler in a CC assignment is only reachable by overriding it.
+    for attempt, override in enumerate(([], ['CC=cc'])):
+        project = copy_project(root, directory / f'project{attempt}')
+        try:
+            subprocess.run(['make', *override, *target], cwd=project, env=environment,
+                           capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            continue
+        archive = project / NAME
+        if archive_is_ar(str(archive)) and _archive_tracks_va(archive):
+            return archive
+    raise TestUnavailable('cannot track va_list cleanup: the Makefile did not build '
+                          'libftprintf.a through cc, gcc or clang found in PATH')
 
 
 def source_files_ok(root, check):

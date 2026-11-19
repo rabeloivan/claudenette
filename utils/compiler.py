@@ -3,8 +3,8 @@ import subprocess
 
 from rich.console import Console
 
-from utils.ui import print_command_execution
-from utils.reporting import current_group, record_problem
+from utils.ui import begin_stage, print_command_execution
+from utils.reporting import current_group, defer_stage_blank, record_problem, staged_report
 
 console = Console()
 
@@ -81,16 +81,21 @@ def compile_source(source_files, output_name, flags=None, announce=True):
         result = subprocess.run(command, capture_output=True, text=True)
 
         if result.returncode != 0:
+            if staged_report() is not None:
+                begin_stage('build', after_silent_stage=True)
+                if announce:
+                    print_command_execution(display_cmd, failed_build=True)
             if not first_build:
                 console.print("[deep_pink2]Compilation failed for additional checks:[/deep_pink2]")
             console.print("[deep_pink2]cc: ERROR[/deep_pink2]")
             clean_err = result.stderr.replace(source_files[0], student_file)
             record_problem('compile', clean_err.strip() or 'Compiler exited without a diagnostic.')
             console.print(clean_err.strip(), style='deep_pink2', markup=False, highlight=False)
-            print()
+            if not defer_stage_blank():
+                print()
             return False
         else:
-            if announce:
+            if announce and staged_report() is None:
                 console.print("[sea_green2]cc: OK![/sea_green2]")
                 print()
             return True

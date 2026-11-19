@@ -6,6 +6,7 @@ import tempfile
 from rich.console import Console
 
 from utils.ui import print_command_execution
+from utils.reporting import current_group, current_presenter, defer_stage_blank
 
 console = Console()
 
@@ -150,7 +151,25 @@ def _defined_functions_uncached(file_path, extra_flags=None):
             os.remove(obj_path)
 
 
-def check_allowed_functions(file_path, allowed, extra_flags=None, strict_symbols=None):
+_ALLOWED_CHECKED = {}
+
+
+def check_allowed_functions(file_path, allowed, extra_flags=None, strict_symbols=None, announce=True):
+    """Check once per unchanged file and settings; a repeat reuses the shown verdict."""
+    try:
+        cache_key = (os.path.abspath(file_path), os.path.getmtime(file_path), tuple(allowed or ()),
+                     tuple(extra_flags or ()), tuple(strict_symbols or ()))
+    except OSError:
+        cache_key = None
+    if cache_key is not None and cache_key in _ALLOWED_CHECKED:
+        return _ALLOWED_CHECKED[cache_key]
+    verdict = _check_allowed_functions(file_path, allowed, extra_flags, strict_symbols, announce)
+    if cache_key is not None and announce:
+        _ALLOWED_CHECKED[cache_key] = verdict
+    return verdict
+
+
+def _check_allowed_functions(file_path, allowed, extra_flags=None, strict_symbols=None, announce=True):
     # strict_symbols: names to check even though they appear in
     # COMPILER_ARTIFACTS. That exclusion list exists because the compiler can
     # emit calls to memcpy/memset/memmove/bzero that the student never wrote -
@@ -162,11 +181,14 @@ def check_allowed_functions(file_path, allowed, extra_flags=None, strict_symbols
     # compiles at -O0, where the loop-idiom recognition that would synthesise
     # such a call from a hand-written byte loop is off.
     filename = os.path.basename(file_path)
+    presenter = current_presenter()
+    grouped_output = presenter is not None and presenter.module == 'bsq'
     allowed_display = ", ".join(allowed) if allowed else "none"
 
-    print_command_execution(
-        f"nm -u {filename} (checking allowed functions: {allowed_display})"
-    )
+    if announce:
+        print_command_execution(
+            f"nm -u {filename} (checking allowed functions: {allowed_display})"
+        )
 
     if shutil.which("cc") is None or shutil.which("nm") is None:
         console.print("[yellow]cc/nm not found (skipping)[/yellow]")
@@ -243,6 +265,8 @@ def check_allowed_functions(file_path, allowed, extra_flags=None, strict_symbols
 
         if forbidden:
             console.print(f"[deep_pink2]{filename}: Error![/deep_pink2]")
+            if extra_flags:
+                console.print("Compiler flags: " + " ".join(extra_flags), highlight=False)
             for fn in forbidden:
                 console.print(
                     f"[deep_pink2]Error: forbidden function used: {fn}()"
@@ -252,8 +276,14 @@ def check_allowed_functions(file_path, allowed, extra_flags=None, strict_symbols
             print()
             return False
 
-        console.print(f"[sea_green2]{filename}: OK![/sea_green2]")
-        print()
+        if announce:
+            if grouped_output:
+                presenter.allowed_results[filename] = True
+            else:
+                console.print(f"[sea_green2]{filename}: OK![/sea_green2]")
+                group = current_group()
+                if not (group is not None and group.symbols_name) and not defer_stage_blank():
+                    print()
         return True
 
     except Exception as e:

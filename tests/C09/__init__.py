@@ -16,20 +16,16 @@ def get_mapping():
                     "ft_putstr.c",
                     "ft_strlen.c",
                     "ft_strcmp.c",
-                    "libft.a",
-                    "*.o",
                 ]
             },
         ),
-        # The subject says "we'll only fetch your Makefile" - nothing else in
-        # this directory is graded, so this check is deliberately lenient
-        # (a student needs their own srcs/includes locally to test the
-        # Makefile before submitting; that's expected, not "extra files").
+        # "We'll only fetch your Makefile": the Makefile is the whole turn-in, and
+        # the test builds it against its own srcs/ and includes/ in a scratch dir.
         "ex01/Makefile": (
             "ex01",
             run_C09_ex01,
             [],
-            {"allowed_files": ["*.c", "*.h", "*.o", "libft.a", "srcs", "includes"]},
+            {"allowed_files": []},
         ),
         "ex02/ft_split.c": ("ex02", run_C09_ex02, ["malloc"]),
     }

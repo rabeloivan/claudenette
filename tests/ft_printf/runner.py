@@ -9,11 +9,13 @@ import tempfile
 
 from tests.libft.build_utils import archive_is_ar, run_make
 from utils.compiler import compile_source
-from utils.reporting import function_report
+from utils.norminette import already_checked
+from utils.reporting import function_report, grouped_norm_report
 from utils.runner import TestUnavailable, run_test_case
 from utils.ui import (CasePresentation, display_str, print_command_execution, print_exercise_result,
                       print_test_fail, print_test_pass, print_test_section, print_test_stage)
-from .build import NAME, check_archive_symbols, check_makefile, copy_project, find_header, source_files_ok
+from .build import (NAME, build_va_archive, check_archive_symbols, check_makefile, copy_project,
+                    find_header, source_files_ok)
 from .cases import c_string, describe, mandatory_cases, oracle_call, sign_cases, width_cases
 from .presentation import case_title, result_presentation
 
@@ -48,14 +50,67 @@ def run_project(path, part, check_symbols=True, norm_check=None):
         root = root.parent
     name = 'ft_printf' if part == 'mandatory' else f'ft_printf_bonus_{part}'
     command = 'make' if part == 'mandatory' else 'make bonus'
-    if part == 'mandatory':
-        print_test_stage()
-    print_command_execution(command + ' (in a scratch copy of the sources)')
+    if part != 'mandatory':
+        print_command_execution(command + ' (in a scratch copy of the sources)')
     with function_report(name, concise=True) as group:
         success = _run(root, part, check_symbols, name, norm_check)
         if group is not None:
             group.success = success
         return success
+
+
+def _va_left_open(binary, temp, case_id, mode, failure):
+    """Return the unbalanced va_list count of one call, or a diagnostic if it did not finish."""
+    output, error, code = run_test_case(str(binary), timeout=5, args=[
+        str(case_id), str(temp / 'va_actual'), str(temp / 'va_expected'), mode, str(failure), '1'])
+    marker = 'CLAUDENETTE_TEST_UNAVAILABLE: '
+    if code == 90 and error.startswith(marker):
+        raise TestUnavailable(error[len(marker):].strip())
+    fields = output.split()
+    if code or len(fields) != 5:
+        return None, error or output or f'exit status {code}'
+    return int(fields[4]), ''
+
+
+def _va_problem(left_open):
+    if left_open > 0:
+        return f'{left_open} va_list left open after ft_printf returned'
+    return f'va_end called {-left_open} extra time after ft_printf returned'
+
+
+def _check_va_cleanup(root, temp, part, flags, cases, scenarios, check, already_failed):
+    """Grade va_start/va_copy/va_end balance on a separately instrumented archive."""
+    directory = temp / 'va_tracking'
+    try:
+        archive = build_va_archive(root, directory, part)
+        binary = directory / 'ft_printf_va'
+        memory_binary = directory / 'ft_printf_va_memory'
+        sources = [str(HERE / 'harness.c'), str(archive)]
+        tracked_flags = flags + ['-DPF_TRACK_VA']
+        built = compile_source(sources, str(binary), tracked_flags, announce=False)
+        if built and scenarios[-1][2]:
+            built = compile_source([str(HERE / 'harness.c'), str(HERE.parent / 'free_tracker.c'), str(archive)],
+                                   str(memory_binary), tracked_flags + ['-DPF_TRACK_MEMORY'], announce=False)
+        if not built:
+            raise TestUnavailable('cannot track va_list cleanup: the tracking harness did not compile')
+    except TestUnavailable:
+        if already_failed:
+            return
+        raise
+    print_test_section('va_list cleanup')
+    for title, mode, entries in scenarios:
+        if not entries:
+            continue
+        problem = call = None
+        for index, failure in entries:
+            target = memory_binary if failure >= 0 else binary
+            left_open, diagnostic = _va_left_open(target, temp, index, mode, failure)
+            if left_open != 0:
+                problem = diagnostic or _va_problem(left_open)
+                call = describe(cases[index])
+                break
+        check(problem is None, f'{title} close every va_list', problem or '', CasePresentation(
+            title, 'every va_list closed', call or '', 'one va_end for each va_start and va_copy', problem))
 
 
 def _run(root, part, check_symbols, name, norm_check=None):
@@ -82,15 +137,38 @@ def _run(root, part, check_symbols, name, norm_check=None):
         if part == 'mandatory':
             source_files_ok(root, partial(check, presentation=CasePresentation(
                 'Submission files', 'match permitted file types')))
+        norm_stage = part == 'mandatory'
+        if norm_check is not None:
+            norm_sources = [source for source in root.rglob('*')
+                            if source.suffix in ('.c', '.h') and '.git' not in source.parts]
+            header_source = find_header(root)
+            if header_source not in norm_sources:
+                norm_sources.append(header_source)
+            # A bonus group reuses the verdicts already shown for the same files.
+            norm_stage = norm_stage or not all(already_checked(str(source)) for source in norm_sources)
+            if norm_stage:
+                print_test_stage(blank_before=passed == total, reset_index=False)
+            with grouped_norm_report(root):
+                for source in norm_sources:
+                    norm_check(str(source))
+        print_test_section('Makefile checks', separate=norm_stage)
+        if part == 'mandatory':
             archive = check_makefile(project, check)
         else:
             output, code = run_make(str(project), ['bonus'])
             archive = project / NAME
             check(code == 0 and archive_is_ar(str(archive)),
                   'make bonus builds libftprintf.a', output[-1200:])
-        print_test_stage(blank_before=True)
-        if norm_check is not None:
-            norm_check(str(find_header(root)))
+        if check_symbols and archive.is_file():
+            print_test_stage(blank_before=True, reset_index=False)
+            print_command_execution(
+                'nm -g libftprintf.a (checking allowed functions: malloc, free, write, '
+                'va_start, va_arg, va_copy, va_end)')
+            symbols_ok, diagnostic = check_archive_symbols(archive)
+            check(symbols_ok, 'archive external calls use the allowed functions or supplied Libft', diagnostic,
+                  presentation=CasePresentation('External calls', 'use permitted functions',
+                                                expected='permitted external functions', actual=diagnostic))
+        print_test_stage(blank_before=True, reset_index=False)
         print_command_execution('checking ft_printf.h')
         probe = temp / 'header.c'
         header_path = find_header(project)
@@ -108,22 +186,6 @@ def _run(root, part, check_symbols, name, norm_check=None):
               header.stderr, presentation=CasePresentation(
                   'Standalone compilation and ft_printf prototype',
                   expected='int ft_printf(const char *, ...)', actual=header.stderr or None))
-        if norm_check is not None:
-            print_test_stage(blank_before=True)
-            main_header = find_header(root)
-            for source in sorted(root.rglob('*')):
-                if (source.suffix in ('.c', '.h') and '.git' not in source.parts
-                        and source != main_header):
-                    norm_check(str(source))
-        if check_symbols and archive.is_file():
-            print_test_stage(blank_before=True)
-            print_command_execution(
-                'nm -g libftprintf.a (checking allowed functions: malloc, free, write, '
-                'va_start, va_arg, va_copy, va_end)')
-            symbols_ok, diagnostic = check_archive_symbols(archive)
-            check(symbols_ok, 'archive external calls use the allowed functions or supplied Libft', diagnostic,
-                  presentation=CasePresentation('External calls', 'use permitted functions',
-                                                expected='permitted external functions', actual=diagnostic))
         cases = {'mandatory': mandatory_cases, 'width': width_cases, 'signs': sign_cases}[part]()
         lines = ['static void prepare_case(int index)', '{', '    switch (index)', '    {']
         for index, case in enumerate(cases):
@@ -144,7 +206,7 @@ def _run(root, part, check_symbols, name, norm_check=None):
         sources = [str(HERE / 'harness.c'), str(archive)]
         flags = ['-Wall', '-Wextra', '-Werror', '-I', str(temp)]
         binary = temp / 'ft_printf_test'
-        print_test_stage(blank_before=True)
+        print_test_stage(blank_before=True, reset_index=False)
         built = compile_source(sources, str(binary), flags, announce=False)
         if built:
             print_command_execution(name + '_test')
@@ -233,14 +295,17 @@ def _run(root, part, check_symbols, name, norm_check=None):
                 if error:
                     presentation = replace(presentation,
                                            details=presentation.details + (('Runtime', error),))
+                if valid:
+                    clean_runs.add((case_id, mode, failure))
                 return valid, attempts, error or diagnostic, presentation
 
+            clean_runs = set()
             print_test_section('Output and return values')
             for index, case in enumerate(cases):
                 valid, _, diagnostic, presentation = execute(index)
                 description = describe(case) + (' ' + diagnostic if valid else ' emits the expected bytes and return count')
                 check(valid, description, diagnostic, presentation)
-            # Repeated calls catch retained parser/count state and va_list misuse.
+            # Repeated calls catch retained parser and count state.
             selected = list(dict.fromkeys([0, len(cases) // 2, len(cases) - 1]))
             print_test_section('Repeated calls')
             for index in selected:
@@ -265,6 +330,7 @@ def _run(root, part, check_symbols, name, norm_check=None):
                 str(HERE.parent / 'free_tracker.c'), str(archive)], str(memory_binary),
                 flags + ['-DPF_TRACK_MEMORY'], announce=False)
             built = built and memory_built
+            allocation_failures = []
             if memory_built:
                 print_test_section('Allocation tracking')
                 # Small representative formats leave the finite tracker arena ample room.
@@ -289,9 +355,21 @@ def _run(root, part, check_symbols, name, norm_check=None):
                               presentation)
                     if valid:
                         for failure in range(attempts):
+                            allocation_failures.append((index, failure))
                             valid, _, diagnostic, presentation = execute(index, binary=memory_binary, failure=failure)
                             check(valid, describe(cases[index]) +
                                   f' handles allocation failure {failure + 1} and frees temporary memory', diagnostic,
                                   presentation)
+            if built:
+                # A call that already failed keeps its own diagnosis, not a va_list one.
+                def clean(mode, entries):
+                    return [entry for entry in entries if (entry[0], mode, entry[1]) in clean_runs]
+                _check_va_cleanup(root, temp, part, flags, cases, [
+                    ('Normal calls', 'normal', clean('normal', [(index, -1) for index in range(len(cases))])),
+                    ('Closed stdout', 'write_error', clean('write_error', [(index, -1) for index in selected])),
+                    ('Failure after partial output', 'late_write_error',
+                     clean('late_write_error', [(index, -1) for index in late_cases])),
+                    ('Allocation failures', 'normal', clean('normal', allocation_failures)),
+                ], check, passed != total)
         print_exercise_result(name, passed, total, failed=not built)
         return built and passed == total and total > 0

@@ -7,6 +7,8 @@ def get_mapping():
             "rush00",
             run_C_rush00,
             ["write"],
-            {"allowed_files": ["main.c", "rush0[0-4].c"]},
+            {"allowed_files": ["main.c", "rush0[0-4].c"],
+             # Shown with ft_putchar.c; each verdict still counts where the runner uses it.
+             "display_sources": ["main.c", "rush0[0-4].c"]},
         ),
     }

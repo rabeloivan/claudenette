@@ -1,4 +1,5 @@
 import fnmatch
+import glob
 import importlib
 import os
 import re
@@ -72,6 +73,19 @@ from tests.libft.harness_runner import check_student_definition
 from tests.null_contracts import run_null_contracts
 from tests.memory_contracts import run_memory_contracts
 from tests.piscine_boundaries import run_boundary_contracts
+from tests.piscine_presentation import PISCINE_MODULES, PiscinePresentation
+
+# Projects of many independent functions get one delimited block per function;
+# one program with helpers gets a delimiter between its stages, as ft_printf does.
+DELIMITED_STAGES = frozenset(['rush00', 'rush01', 'rush02', 'bsq'])
+BLOCK_STAGES = (PISCINE_MODULES - DELIMITED_STAGES) | {'libft'}
+
+
+def output_layout(module_name):
+    module = module_name.split('.')[-1]
+    if module in DELIMITED_STAGES:
+        return 'delimited'
+    return 'blocks' if module in BLOCK_STAGES else None
 from utils.extra_files import check_no_extra_files
 from utils.functions import check_allowed_functions
 from utils.norminette import check_norminette
@@ -379,21 +393,30 @@ if __name__ == "__main__":
     # Display names of any separately evaluated entries, kept out of the
     # mandatory score streak. Libft 19.3 has no such entries.
     bonus_names = set()
+    bonus_blocked = False
     # What rush00 was told - see rush00_printed_own_summary below.
     rush00_precheck_ok = False
     last_was_grouped = False
+    piscine_module = test_module.__name__.split('.')[-1]
+    piscine = piscine_module in PISCINE_MODULES
+    presenters = {path: PiscinePresentation(piscine_module, path) for path in sorted_paths} if piscine else {}
+    display_names = {test_map[path][0]: presenter.name for path, presenter in presenters.items()}
     if compact:
-        start_compact_report([test_map[path][0] for path in sorted_paths])
+        start_compact_report([display_names.get(test_map[path][0], test_map[path][0]) for path in sorted_paths])
 
     for student_file_path in sorted_paths:
         with exercise_report(lambda: results[-1], compact=compact,
-                             concise=dir_name.lower() in ('libft', 'ft_printf')):
+                             concise=piscine or test_module.__name__ in (
+                                 'tests.libft', 'tests.ft_printf'),
+                             presenter=presenters.get(student_file_path),
+                             stages=output_layout(test_module.__name__)):
             mapping_entry = test_map[student_file_path]
             if len(mapping_entry) == 4:
                 ex_name, run_func, allowed_fns, options = mapping_entry
             else:
                 ex_name, run_func, allowed_fns = mapping_entry
                 options = {}
+            contract_module = test_module.__name__.split(".")[-1]
             extra_norm_rules = options.get("norm_rules")
             extra_compile_flags = options.get("compile_flags")
             skip_precheck = options.get("skip_precheck", False)
@@ -404,7 +427,9 @@ if __name__ == "__main__":
             if options.get("requires_mandatory") and any(
                 status != "OK" for name, status in results if name not in bonus_names
             ):
-                console.print("[bright_black]Bonus requires a complete mandatory pass.[/bright_black]")
+                if not bonus_blocked:
+                    console.print("[bright_black]Bonus requires a complete mandatory pass.[/bright_black]")
+                bonus_blocked = True
                 results.append((ex_name, "KO"))
                 continue
 
@@ -518,16 +543,28 @@ if __name__ == "__main__":
                             check_norminette(header, extra_rules=extra_norm_rules)
                             and norm_passed
                         )
+                # Shown in the same stage; their verdicts count later, where the
+                # runner checks them again from the cache.
+                display_sources = sorted({
+                    path for pattern in options.get("display_sources", ())
+                    for path in glob.glob(os.path.join(os.path.dirname(student_file_path), pattern))})
+                if not skip_norm and key_is_source:
+                    for source in display_sources:
+                        check_norminette(source, extra_rules=extra_norm_rules)
 
                 if skip_fn or not key_is_source or options.get("runner_checks_symbols"):
                     fns_passed = True
                 else:
                     fns_passed = True
-                    for source in options.get("source_files", [student_file_path]):
-                        fns_passed = check_allowed_functions(
-                            source, allowed_fns, extra_flags=extra_compile_flags,
-                            strict_symbols=strict_symbols,
-                        ) and fns_passed
+                    for variant_index, flags in enumerate(options.get("compile_variants", [extra_compile_flags])):
+                        for source in options.get("source_files", [student_file_path]):
+                            fns_passed = check_allowed_functions(
+                                source, allowed_fns, extra_flags=flags,
+                                strict_symbols=strict_symbols,
+                                announce=variant_index == 0,
+                            ) and fns_passed
+                    for source in display_sources:
+                        check_allowed_functions(source, allowed_fns, strict_symbols=strict_symbols)
 
                 checks_bypassed = skip_norm or skip_fn
             runner_norm_results = {}
@@ -582,10 +619,10 @@ if __name__ == "__main__":
                             tests_passed = run_func(student_file_path, check_symbols=not skip_fn)
                         else:
                             tests_passed = run_func(student_file_path)
-                        boundary_passed = run_boundary_contracts(test_module.__name__.split(".")[-1], student_file_path)
+                        boundary_passed = run_boundary_contracts(contract_module, student_file_path)
                         tests_passed = tests_passed and boundary_passed
-                        null_passed = run_null_contracts(test_module.__name__.split(".")[-1], student_file_path, options)
-                        memory_passed = run_memory_contracts(test_module.__name__.split(".")[-1], student_file_path, options)
+                        null_passed = run_null_contracts(contract_module, student_file_path, options)
+                        memory_passed = run_memory_contracts(contract_module, student_file_path, options)
                         tests_passed = tests_passed and null_passed and memory_passed and not RUNTIME_ISSUES
                     if group is not None:
                         group.success = tests_passed
@@ -676,7 +713,8 @@ if __name__ == "__main__":
     get_advisories = getattr(test_module, "get_advisories", None)
     advisories = get_advisories() if callable(get_advisories) else []
     if advisories:
-        print()
+        if compact or test_module.__name__ != 'tests.ft_printf' or bonus_blocked:
+            print()
         for line in advisories:
             console.print(f"[yellow]Note: {line}[/yellow]", highlight=False)
 
@@ -700,7 +738,8 @@ if __name__ == "__main__":
         # run_C_rush00 returns score > 0, the same test its Status uses.
         status = "PASSED" if results[0][1] == "OK" else "FAILED"
     else:
-        status = print_final_summary(results, bonus_names=bonus_names, compact=compact)
+        visible_results = [(display_names.get(name, name), result) for name, result in results]
+        status = print_final_summary(visible_results, bonus_names=bonus_names, compact=compact)
 
     elapsed = time.time() - start_time
     console.print(

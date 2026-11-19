@@ -7,6 +7,6 @@ def get_mapping():
             "rush01",
             run_C_rush01,
             ["write", "malloc", "free"],
-            {"allowed_files": ["*.c", "*.h", "*.o", "rush01"]},
+            {"allowed_files": ["*.c", "*.h"]},
         ),
     }

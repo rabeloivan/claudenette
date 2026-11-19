@@ -1,6 +1,38 @@
+import contextlib
 import glob
 import os
+import shutil
+import stat
 import subprocess
+import tempfile
+
+
+def _not_regular(directory, names):
+    """Skip .git and special files (a FIFO would block the copy)."""
+    skipped = []
+    for name in names:
+        try:
+            mode = os.lstat(os.path.join(directory, name)).st_mode
+        except OSError:
+            skipped.append(name)
+            continue
+        if name == '.git' or not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            skipped.append(name)
+    return skipped
+
+
+@contextlib.contextmanager
+def scratch_exercise(student_file):
+    """Yield the same file inside a copy of its exercise, as Libft and ft_printf build.
+
+    Builds, `make fclean` and cleanup then happen in the copy, so grading never
+    creates or deletes anything in the student's tree.
+    """
+    student_dir = os.path.dirname(os.path.abspath(student_file))
+    with tempfile.TemporaryDirectory(prefix='claudenette-exercise-') as temp:
+        copy = os.path.join(temp, os.path.basename(student_dir))
+        shutil.copytree(student_dir, copy, ignore=_not_regular)
+        yield os.path.join(copy, os.path.basename(student_file))
 
 
 def run_make(student_dir, *targets, timeout=30):

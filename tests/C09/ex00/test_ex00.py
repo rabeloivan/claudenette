@@ -12,11 +12,18 @@ from utils.ui import (
     print_test_fail,
     print_test_pass,
 )
+from ...make_utils import scratch_exercise
 
 SIBLINGS = ["ft_putchar.c", "ft_swap.c", "ft_putstr.c", "ft_strlen.c", "ft_strcmp.c"]
 
 
 def run_C09_ex00(student_file):
+    # Build in a copy of the exercise, as Libft and ft_printf do.
+    with scratch_exercise(student_file) as copied:
+        return _run_C09_ex00(copied)
+
+
+def _run_C09_ex00(student_file):
     student_dir = os.path.dirname(student_file)
     test_dir = os.path.dirname(os.path.abspath(__file__))
     harness_path = os.path.join(test_dir, "ex00_harness.c")

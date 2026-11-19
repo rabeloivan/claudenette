@@ -7,6 +7,7 @@ import sys
 from rich.console import Console
 
 from utils.ui import print_command_execution
+from utils.reporting import current_group, current_presenter, defer_stage_blank
 
 console = Console()
 
@@ -45,15 +46,23 @@ def _could_not_check(filename, reason):
 _CHECKED = {}
 
 
-def check_norminette(file_path, extra_rules=None):
+def _cache_key(file_path, extra_rules=None):
     try:
-        cache_key = (
+        return (
             os.path.abspath(file_path),
             os.path.getmtime(file_path),
             tuple(extra_rules or ()),
         )
     except OSError:
-        cache_key = None
+        return None
+
+
+def already_checked(file_path, extra_rules=None):
+    return _cache_key(file_path, extra_rules) in _CHECKED
+
+
+def check_norminette(file_path, extra_rules=None):
+    cache_key = _cache_key(file_path, extra_rules)
     if cache_key is not None and cache_key in _CHECKED:
         return _CHECKED[cache_key]
     verdict = _run_norminette(file_path, extra_rules)
@@ -62,8 +71,24 @@ def check_norminette(file_path, extra_rules=None):
     return verdict
 
 
+def _display_path(line, directory, label):
+    """Show a file inside a checked directory relative to that directory."""
+    path, _, verdict = line.rpartition(': ')
+    try:
+        relative = os.path.relpath(os.path.abspath(path), os.path.abspath(directory))
+    except ValueError:
+        return line
+    if relative.startswith('..'):
+        return line
+    return f'{relative}: {verdict}'
+
+
 def _run_norminette(file_path, extra_rules=None):
     filename = os.path.basename(file_path)
+    group = current_group()
+    grouped_output = group is not None and group.norm_root is not None
+    if grouped_output:
+        filename = os.path.relpath(file_path, group.norm_root)
 
     # norminette only checks C: on any other file it prints "is not valid C
     # or C header file", and whether it then exits 0 (3.3.59) or 1 (3.3.60)
@@ -109,6 +134,18 @@ def _run_norminette(file_path, extra_rules=None):
         clean_output = strip_ansi(raw_output)
 
         if "Error!" in clean_output or result.returncode != 0:
+            if os.path.isdir(file_path) and ": Error!" in clean_output:
+                # A directory names each file, as a grouped report does.
+                for line in clean_output.splitlines():
+                    if line.endswith((': OK!', ': Error!')):
+                        style = 'sea_green2' if line.endswith(': OK!') else 'deep_pink2'
+                        console.print(_display_path(line, file_path, filename), style=style,
+                                      markup=False, highlight=False)
+                    elif "Error:" in line:
+                        console.print(line.strip(), style='deep_pink2', markup=False, highlight=False)
+                if not grouped_output:
+                    print()
+                return False
             console.print(f"[deep_pink2]{filename}: Error![/deep_pink2]")
             lines = clean_output.split("\n")
 
@@ -119,11 +156,24 @@ def _run_norminette(file_path, extra_rules=None):
                         f"[deep_pink2]{clean_line}[/deep_pink2]", highlight=False
                     )
 
-            print()
+            # A grouped report keeps its files together; its stage end adds the gap.
+            if not grouped_output:
+                print()
             return False
         else:
-            console.print(f"[sea_green2]{filename}: OK![/sea_green2]")
-            print()
+            presenter = current_presenter()
+            if os.path.isdir(file_path):
+                # Norm results name files, never the directory that holds them.
+                lines = [_display_path(line, file_path, filename)
+                         for line in clean_output.splitlines() if line.endswith(': OK!')]
+                if presenter is not None and presenter.module == 'bsq':
+                    presenter.source_order = [line.removesuffix(': OK!') for line in lines]
+                for line in lines or [f'{filename}: OK!']:
+                    console.print(line, style='sea_green2', markup=False, highlight=False)
+            else:
+                console.print(f"[sea_green2]{filename}: OK![/sea_green2]")
+            if not grouped_output and not defer_stage_blank():
+                print()
             return True
 
     except Exception as e:

@@ -19,7 +19,7 @@ def get_mapping():
             "ex05",
             run_C11_ex05,
             ["write"],
-            {"allowed_files": ["*.c", "*.h", "*.o", "do-op"]},
+            {"allowed_files": ["*.c", "*.h"]},
         ),
         "ex06/ft_sort_string_tab.c": ("ex06", run_C11_ex06, []),
         "ex07/ft_advanced_sort_string_tab.c": ("ex07", run_C11_ex07, []),
