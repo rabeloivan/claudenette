@@ -139,11 +139,10 @@ Two things worth knowing while iterating:
 
 The default output keeps the original colored CLAUDENETTE banner, all test cases,
 expected/got diagnostics, score, elapsed time and final notice. Details require no
-flag. `--compact` is optional; there is no `--verbose` option. Libft and ft_printf
-use short scenario labels and aligned result values. Bold group titles identify
+flag. `--compact` is optional; there is no `--verbose` option. Every module uses
+short scenario labels and aligned result values. Bold group titles identify
 the existing campaigns. Failures show Call, Expected and Got fields, with context
 for write errors, allocation tracking and the first differing output byte.
-The other modules use one `as expected` or `not as expected` result phrase.
 
 Function-level tests have one continuous numbered list and one final PASS/FAIL total.
 Primary cases come before the additional campaigns in those function runners; successful
@@ -152,11 +151,21 @@ always shown in normal mode. For example, `Empty string` is followed by `output 
 in the aligned value column of the Libft strlen report.
 
 Normal output aligns wrapped commands, case descriptions and expected/got values
-under their respective text. ft_printf presents deliverables, Makefile checks,
-the header's Norminette and interface check, then source Norminette and allowed
-calls, with delimiters before the archive-symbol command and runtime tests.
-Its numbered stages start
-at 1 independently; the final project total still includes every executed case.
+under their respective text. It follows one of two layouts:
+
+- **One block per function** for projects made of many independent functions:
+  Libft, C00–C13, Shell00 and Shell01. Each function or exercise opens and closes
+  with a delimiter; inside it, deliverables, Norminette, allowed calls and tests are
+  separated by a blank line.
+- **One delimiter per stage** for a single program with helpers: ft_printf, BSQ and
+  Rush00–Rush02. Deliverables, Norminette, Makefile checks, allowed calls and
+  runtime tests each get their own stage.
+
+Successful harness builds are not announced; a failed build shows its command and
+the compiler's full diagnostics. Norminette and allowed calls are announced once per
+multi-file unit, with one line per file, and Norminette always names files rather
+than the directory that holds them. In ft_printf, numbered stages start at 1
+independently; the final project total still includes every executed case.
 
 Libft checks its
 Makefile first, then the header, then each function's Norm, allowed calls and
@@ -199,6 +208,12 @@ reconstruct the official evaluator's hidden tests or grading rules.
 
 `Status: PASSED` at 50 or above.
 
+A bonus counts only on top of a complete mandatory part. A complete bonus scores
+`125/100`; when a bonus has several groups, as ft_printf does, each completed
+group adds its share of the 25 points (one of ft_printf's two groups gives
+`112/100`). `Bonus score:` shows how many groups passed. A bonus graded with
+`--skip-norm` or `--skip-fn` adds nothing.
+
 ### Exit status
 
 The verdict is also the exit status, so a script or a git hook can act on it without
@@ -235,6 +250,15 @@ That means `PASSED` under the scoring rules above, which can occur from 50/100.
 
 When more than one applies, the most severe wins:
 `EXTRA FILES` > `NORM ERR` > `FORBIDDEN FN` > `CRASH` > `UNKNOWN` > `KO` > `SKIPPED` > `OK`.
+
+### Extra files
+
+As at the Moulinette, a directory may hold only the files the subject asks you to
+turn in, plus `.git`. Anything else is `EXTRA FILES`, including `.gitignore`, object
+files, archives and executables left by a local build. Run `make fclean` before
+grading a directory where you built the project. Claudenette builds and runs
+`make`, `make clean` and `make fclean` in scratch copies, so grading never creates
+or deletes anything in your directory.
 
 ### A house rule: NULL must not crash custom functions
 
@@ -333,6 +357,13 @@ at a protected memory boundary. Write errors are tested both before and after
 partial output. A recovered allocation failure is accepted when output and return
 count remain correct and temporary memory is freed.
 
+Every `va_start` and `va_copy` needs its `va_end`. Leaving one open is undefined
+behavior that no output or return value reveals, so a separate build counts them
+after normal calls, after write errors and after allocation failures. An open
+`va_list` is KO. A `va_end` called in a different function from its `va_start` is
+not detected. If a Makefile builds outside `cc`, `gcc` or `clang` found in `PATH`,
+this check cannot run and the result is UNKNOWN.
+
 Write-error and memory failures remain decisive robustness checks. A negative
 return is required after an output error; official coverage of these particular
 campaigns is not assumed. NULL formats, NULL `%s` and other undefined inputs
@@ -343,7 +374,8 @@ A declared `bonus` target enables two separate optional groups. One covers
 include bounded strings without a terminating zero, within libc's defined domain.
 Target discovery respects expanded Makefile rules and conditions. Bonus assessment
 requires a complete mandatory pass. A failed optional group preserves the
-mandatory score. Filter by `ft_printf_bonus_width` or `ft_printf_bonus_signs` to
+mandatory score; each completed group adds its share of the bonus points described
+in [Reading the score](#reading-the-score). Filter by `ft_printf_bonus_width` or `ft_printf_bonus_signs` to
 inspect one group; a bonus-only run has an incomplete mandatory verdict.
 
 Invalid formats, mismatched argument types and undefined flag/conversion pairs
