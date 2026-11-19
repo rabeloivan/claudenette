@@ -411,7 +411,8 @@ MIT — see [LICENSE](LICENSE).
 
 ## Test acknowledgments
 
-Test inputs and contract ideas were adapted from the Francinette ecosystem,
+Test inputs and contract ideas were adapted from the
+[Francinette](https://github.com/xicodomingues/francinette) ecosystem,
 including Alelievr, Fsoares, Tripouille, War Machine and its C Piscine suites.
 Credits include Francisco / fsoares-, alelievr, Tripouille, cacharle, jtoty, badam and their
 contributors. Claudenette uses its own harnesses and interface.
