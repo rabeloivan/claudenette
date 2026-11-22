@@ -47,9 +47,20 @@ def _harness_flags():
     return HARNESS_FLAGS + ([_STACK_INIT_FLAG] if _stack_init_supported[0] else [])
 
 
+# Sources the grader itself supplies to every build of the current entry, such as
+# the ft_putchar.c Piscine Reloaded promises: "we will compile your code with our
+# ft_putchar.c". main.py sets them per entry, so no other entry inherits them.
+_LINKED_SOURCES = []
+
+
+def set_linked_sources(paths):
+    _LINKED_SOURCES[:] = [str(path) for path in paths]
+
+
 def compile_source(source_files, output_name, flags=None, announce=True):
     if flags is None:
         flags = ["-Wall", "-Wextra", "-Werror"]
+    source_files = list(source_files) + [path for path in _LINKED_SOURCES if path not in source_files]
 
     command = ["cc"] + flags + _harness_flags() + source_files + ["-o", output_name]
     student_file = os.path.basename(source_files[0])

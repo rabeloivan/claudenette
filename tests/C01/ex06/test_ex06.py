@@ -12,7 +12,7 @@ from utils.ui import (
 )
 
 
-def run_C01_ex06(student_file):
+def run_C01_ex06(student_file, null_probe=True):
     test_dir = os.path.dirname(os.path.abspath(__file__))
     harness_path = os.path.join(test_dir, "ex06_harness.c")
     exe_path = "./strlen"
@@ -52,15 +52,19 @@ def run_C01_ex06(student_file):
                 actual=actual,
             )
 
-    total_count += 1
-    actual, err, code = run_test_case(exe_path, args=["null_str"], timeout=2)
-    if err == "TIMEOUT":
-        print_test_fail(total_count, "str=NULL: hung (timed out)")
-    elif code < 0:
-        print_test_fail(total_count, "str=NULL: crashed", actual=f"signal {-code}")
-    else:
-        print_test_pass(total_count, "str=NULL: did not crash or hang")
-        passed_count += 1
+    # C01 defines its own ft_strlen, so the NULL house rule applies. Piscine
+    # Reloaded instead asks for the behavior of strlen (man strlen), whose
+    # domain excludes NULL, so it calls this without the probe.
+    if null_probe:
+        total_count += 1
+        actual, err, code = run_test_case(exe_path, args=["null_str"], timeout=2)
+        if err == "TIMEOUT":
+            print_test_fail(total_count, "str=NULL: hung (timed out)")
+        elif code < 0:
+            print_test_fail(total_count, "str=NULL: crashed", actual=f"signal {-code}")
+        else:
+            print_test_pass(total_count, "str=NULL: did not crash or hang")
+            passed_count += 1
 
     print_exercise_result("ex06/ft_strlen.c", passed_count, total_count)
 

@@ -91,6 +91,18 @@ def _run_C10_ex00(student_file):
         show_value=err,
     )
 
+    # A directory opens but cannot be read (read() fails with EISDIR on Linux
+    # and macOS), which is what "Cannot read file." is for.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        actual, err, code = run_test_case(binary_path, input_data="", args=[tmpdir])
+    check(
+        actual == "" and err == "Cannot read file.\n",
+        "a directory as the file: stderr",
+        expected="Cannot read file.\n",
+        actual=err,
+        show_value=err,
+    )
+
     contents = [
         b"hello world\n",
         b"",

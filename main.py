@@ -78,7 +78,12 @@ from tests.piscine_presentation import PISCINE_MODULES, PiscinePresentation
 # Projects of many independent functions get one delimited block per function;
 # one program with helpers gets a delimiter between its stages, as ft_printf does.
 DELIMITED_STAGES = frozenset(['rush00', 'rush01', 'rush02', 'bsq'])
-BLOCK_STAGES = (PISCINE_MODULES - DELIMITED_STAGES) | {'libft'}
+BLOCK_STAGES = (PISCINE_MODULES - DELIMITED_STAGES) | {'libft', 'piscine_reloaded'}
+
+
+def source_module_of(entry, module):
+    """The Piscine module whose rules an entry reuses (Piscine Reloaded), else its own."""
+    return (entry[3] if len(entry) == 4 else {}).get("source_module", module)
 
 
 def output_layout(module_name):
@@ -86,6 +91,7 @@ def output_layout(module_name):
     if module in DELIMITED_STAGES:
         return 'delimited'
     return 'blocks' if module in BLOCK_STAGES else None
+from utils.compiler import set_linked_sources
 from utils.extra_files import check_no_extra_files
 from utils.functions import check_allowed_functions
 from utils.norminette import check_norminette
@@ -287,6 +293,8 @@ def get_current_exercise_mapping():
 
     if re.match(r"^C(0[0-9]|1[0-3])$", current_dir):
         package_name = current_dir
+    elif current_dir.lower() in {"piscine_reloaded", "piscine-reloaded"}:
+        package_name = "piscine_reloaded"
     elif current_dir.lower() in project_names:
         # Project directories (unlike C00-C13) aren't consistently cased
         # across campuses/students (e.g. "Rush00") - the package on disk is
@@ -328,7 +336,7 @@ if __name__ == "__main__":
     if test_map is None:
         error_msg = (
             f"Current directory '{dir_name}' does not match expected pattern "
-            "(C00~13, rush00, rush01, rush02, bsq, shell00, shell01, libft, ft_printf)."
+            "(C00~13, rush00, rush01, rush02, bsq, shell00, shell01, piscine_reloaded, libft, ft_printf)."
         )
         fix_msg = "Please navigate to an appropriate directory to run tests."
         console.print(f"[deep_pink2]{error_msg:^{BANNER_WIDTH}s}[/deep_pink2]")
@@ -399,7 +407,11 @@ if __name__ == "__main__":
     last_was_grouped = False
     piscine_module = test_module.__name__.split('.')[-1]
     piscine = piscine_module in PISCINE_MODULES
-    presenters = {path: PiscinePresentation(piscine_module, path) for path in sorted_paths} if piscine else {}
+    # Reloaded entries present themselves as the Piscine module their test comes from.
+    presenters = {path: PiscinePresentation(source_module_of(test_map[path], piscine_module), path,
+                                            (test_map[path][3] if len(test_map[path]) == 4 else {})
+                                            .get('presentation_name'))
+                  for path in sorted_paths} if piscine else {}
     display_names = {test_map[path][0]: presenter.name for path, presenter in presenters.items()}
     if compact:
         start_compact_report([display_names.get(test_map[path][0], test_map[path][0]) for path in sorted_paths])
@@ -416,7 +428,8 @@ if __name__ == "__main__":
             else:
                 ex_name, run_func, allowed_fns = mapping_entry
                 options = {}
-            contract_module = test_module.__name__.split(".")[-1]
+            contract_module = source_module_of(mapping_entry, test_module.__name__.split(".")[-1])
+            set_linked_sources(options.get("link_sources", ()))
             extra_norm_rules = options.get("norm_rules")
             extra_compile_flags = options.get("compile_flags")
             skip_precheck = options.get("skip_precheck", False)

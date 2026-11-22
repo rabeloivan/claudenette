@@ -13,7 +13,7 @@ from utils.ui import (
 
 PISCINE_MODULES = frozenset(
     [f'C{index:02}' for index in range(14)]
-    + ['shell00', 'shell01', 'rush00', 'rush01', 'rush02', 'bsq']
+    + ['shell00', 'shell01', 'rush00', 'rush01', 'rush02', 'bsq', 'piscine_reloaded']
 )
 
 
@@ -82,12 +82,15 @@ def _value(value):
 
 
 class PiscinePresentation:
-    def __init__(self, module, student_file):
+    def __init__(self, module, student_file, name=None):
         self.module = module
         self.student_file = Path(student_file)
         self.header = Path(student_file).suffix == '.h'
         self.section = None
-        if module in ('bsq', 'rush00', 'rush01', 'rush02'):
+        if name is not None:
+            # A reused test in another directory (Piscine Reloaded) names itself.
+            self.name = name
+        elif module in ('bsq', 'rush00', 'rush01', 'rush02'):
             self.name = module
         elif module == 'C10':
             self.name = {'ex00': 'ft_display_file', 'ex01': 'ft_cat',

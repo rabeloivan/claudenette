@@ -77,5 +77,37 @@ def run_shell01_ex02(student_file):
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
+    # find's results handed to basename as words break on a name with a
+    # space and, with nothing found, run basename with no operand at all -
+    # an error the subject's output has no room for.
+    scratch = tempfile.mkdtemp(prefix="claudenette_shell01_ex02_edge_")
+    try:
+        os.makedirs(os.path.join(scratch, "empty", "sub"))
+        with open(os.path.join(scratch, "empty", "sub", "notes.txt"), "w") as f:
+            f.write("x\n")
+        actual, err, code = run_sh(abs_file, cwd=os.path.join(scratch, "empty"))
+        check(
+            actual == "" and err == "",
+            "a tree with no .sh file: stdout and stderr",
+            expected="",
+            actual=actual + err,
+            show_value="",
+        )
+
+        os.makedirs(os.path.join(scratch, "spaces", "sub"))
+        with open(os.path.join(scratch, "spaces", "sub", "a b.sh"), "w") as f:
+            f.write("x\n")
+        actual, err, code = run_sh(abs_file, cwd=os.path.join(scratch, "spaces"))
+        actual_names = [line for line in actual.splitlines() if line]
+        check(
+            actual_names == ["a b"],
+            "a file named 'a b.sh' listed as one name",
+            expected=["a b"],
+            actual=actual_names,
+            show_value=actual_names,
+        )
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
     print_exercise_result(student_file, passed, i)
     return passed == i

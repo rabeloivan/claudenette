@@ -42,6 +42,8 @@ add('C11', 'ft_foreach', 'NULL, 1, p_void_int', 'numbers, 1, NULL')
 add('C11', 'ft_map', 'NULL, 1, p_int', 'numbers, 1, NULL')
 add('C11', 'ft_any', 'NULL, p_str', 'words, NULL')
 add('C11', 'ft_count_if', 'NULL, 1, p_str', 'words, 1, NULL')
+# Piscine Reloaded's ft_count_if takes a 0-terminated array and no length.
+add('piscine_reloaded', 'ft_count_if', 'NULL, p_str', 'words, NULL')
 add('C11', 'ft_is_sort', 'NULL, 2, p_int_cmp', 'numbers, 2, NULL')
 add('C11', 'ft_sort_string_tab', 'NULL')
 add('C11', 'ft_advanced_sort_string_tab', 'NULL, p_str_cmp', 'words, NULL')
@@ -138,7 +140,9 @@ def run_null_contracts(module, student_file, options=None):
             return False
         harness = ROOT / 'libft' / name / f'{name}_harness.c'
     else:
-        harness = ROOT / module / Path(student_file).parent / (Path(student_file).parent.name + '_harness.c')
+        # A reused test (Piscine Reloaded) names the exercise its harness belongs to.
+        exercise = options.get('source_exercise', Path(student_file).parent.name)
+        harness = ROOT / module / exercise / (exercise + '_harness.c')
     text = harness.read_text()
     match = re.search(r'(?m)^([A-Za-z_][^;{}]*?\b' + re.escape(name) + r'\s*\([^;{}]*\);)', text)
     if not match:

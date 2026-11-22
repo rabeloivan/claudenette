@@ -83,6 +83,25 @@ def _display_path(line, directory, label):
     return f'{relative}: {verdict}'
 
 
+def _sorted_by_file(output):
+    """Order a directory report by file path.
+
+    norminette lists a directory's files in filesystem order, which differs
+    between macOS (APFS) and Linux; sorting keeps the report identical on both.
+    Each file line keeps the Error: lines that follow it.
+    """
+    preamble, blocks = [], []
+    for line in output.splitlines():
+        if line.endswith((': OK!', ': Error!')):
+            blocks.append([line])
+        elif blocks:
+            blocks[-1].append(line)
+        else:
+            preamble.append(line)
+    blocks.sort(key=lambda block: block[0].rpartition(': ')[0])
+    return '\n'.join(preamble + [line for block in blocks for line in block])
+
+
 def _run_norminette(file_path, extra_rules=None):
     filename = os.path.basename(file_path)
     group = current_group()
@@ -132,6 +151,8 @@ def _run_norminette(file_path, extra_rules=None):
     try:
         raw_output = result.stdout.strip()
         clean_output = strip_ansi(raw_output)
+        if os.path.isdir(file_path):
+            clean_output = _sorted_by_file(clean_output)
 
         if "Error!" in clean_output or result.returncode != 0:
             if os.path.isdir(file_path) and ": Error!" in clean_output:
