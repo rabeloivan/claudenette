@@ -5,7 +5,7 @@ behavior and documented robustness checks. Point it at your submission directory
 to check norm, forbidden functions, deliverables and the behavior of your code.
 
 Covers the Piscine — **C00–C13**, **rush00 / rush01 / rush02**, **bsq**, **shell00 /
-shell01** — and the common-core projects **libft** and **ft_printf**.
+shell01** — **Piscine Reloaded**, and the common-core projects **libft** and **ft_printf**.
 
 > Claudenette is an unofficial study aid. It is not affiliated with 42, and passing
 > here does not guarantee passing the real moulinette. Always test your own work.
@@ -79,8 +79,8 @@ python3 ~/claudenette/main.py   # or just `claudenette`, see below
 ```
 
 That directory must be named `C00`–`C13`, or `rush00` / `rush01` / `rush02` / `bsq` /
-`shell00` / `shell01` / `libft` / `ft_printf`
-(project names are case-insensitive). Anything else exits
+`shell00` / `shell01` / `piscine_reloaded` / `libft` / `ft_printf`
+(project names are case-insensitive; `piscine-reloaded` also works). Anything else exits
 with an error. **This is the most common first-run mistake** — running from the repo
 itself, or from a parent folder, will not work. Claudenette is the grader, not the
 submissions.
@@ -154,8 +154,8 @@ Normal output aligns wrapped commands, case descriptions and expected/got values
 under their respective text. It follows one of two layouts:
 
 - **One block per function** for projects made of many independent functions:
-  Libft, C00–C13, Shell00 and Shell01. Each function or exercise opens and closes
-  with a delimiter; inside it, deliverables, Norminette, allowed calls and tests are
+  Libft, C00–C13, Shell00, Shell01 and Piscine Reloaded. Each function or exercise
+  opens and closes with a delimiter; inside it, deliverables, Norminette, allowed calls and tests are
   separated by a blank line.
 - **One delimiter per stage** for a single program with helpers: ft_printf, BSQ and
   Rush00–Rush02. Deliverables, Norminette, Makefile checks, allowed calls and
@@ -271,7 +271,7 @@ return value where the subject specifies none.
 When the subject explicitly requires reproducing a manual function, tests stay
 within that manual's defined domain. NULL arguments with undefined behavior are
 excluded, including Libft Part 1 pointer functions, C02 strcpy/strncpy/strlcpy,
-C03 and C07 strdup. CLI projects receive real command-line and file inputs;
+C03, C07 strdup and Piscine Reloaded strlen/strcmp/strdup. CLI projects receive real command-line and file inputs;
 Claudenette does not call their `main` with fabricated NULL arguments.
 
 A missing NULL guard in a custom function can therefore produce KO even when its
@@ -281,6 +281,27 @@ ordinary cases pass. Check the case description before interpreting the result.
 
 rush00's real grading is a random per-team draw across five variants with a bonus
 above 100%, so it prints its own summary and scores `0` or `100`–`125`.
+
+## Piscine Reloaded
+
+Supports subject **2.2**: 28 exercises, `ex00` to `ex27`, from the Shell through C11.
+Run it from a directory named `piscine_reloaded` or `piscine-reloaded`. Each exercise
+reuses the corresponding Piscine test, with its cases, NULL and boundary campaigns,
+under the Reloaded file names. Where the subject differs:
+
+- Exercises that authorize only `ft_putchar` (ex06, ex07, ex08, ex15, ex18, ex19) are
+  compiled with Claudenette's own `ft_putchar.c`, as the subject says the Moulinette
+  does. Do not turn in `ft_putchar`; defining it fails to link, and calling `write`
+  directly is `FORBIDDEN FN`.
+- ex00 is `exo.tar`.
+- ex12 and ex13 must return 0 from 13 upwards: the subject asks for 0 on an error
+  and, unlike C05, does not excuse overflow, and 13! does not fit an `int`.
+- ex16 reproduces `strlen` (man strlen), so NULL is not probed there.
+- ex26 `ft_count_if(char **tab, int (*f)(char*))` takes an array terminated by 0,
+  without a length. Its callback returns only 0 or 1, because the subject counts the
+  elements for which it returns 1.
+
+Scoring follows the Piscine rule above; the subject gives no pass mark, so 50 is used.
 
 ## libft
 
