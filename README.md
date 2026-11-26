@@ -1,450 +1,202 @@
 # Claudenette
 
-A local tester for 42 projects, covering subject requirements, defined function
-behavior and documented robustness checks. Point it at your submission directory
-to check norm, forbidden functions, deliverables and the behavior of your code.
+A local tester for 42 projects. Run it inside your project directory and it checks
+what the Moulinette would look at: norminette, forbidden functions, the files you turn
+in, and how your code behaves.
 
-Covers the Piscine — **C00–C13**, **rush00 / rush01 / rush02**, **bsq**, **shell00 /
-shell01** — **Piscine Reloaded**, and the common-core projects **libft** and **ft_printf**.
+> Claudenette is an unofficial study aid, not affiliated with 42. Its tests are its
+> own, not the Moulinette's, so passing here does not guarantee passing there.
 
-> Claudenette is an unofficial study aid. It is not affiliated with 42, and passing
-> here does not guarantee passing the real moulinette. Always test your own work.
+```
+~/libft $> claudenette --compact ft_strlen ft_strlcpy ft_strchr ft_strdup ft_split
 
-## Evaluation policy
+FUNCTION                                   TESTS                                      RESULT
+ft_strlen                              ✓×27  (27/27)                                      OK
+ft_strlcpy                    ✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓✓  (23/23)                            OK
+ft_strchr                           ✓×16  ✖×22  (16/38)                                   KO
+ft_strdup                              ✓×25  (25/25)                                      OK
+ft_split                               ✓×32  (32/32)                                      OK
 
-Claudenette keeps one score and one verdict. A relevant subject, function-contract
-or documented robustness failure can produce KO, even if a submission passed an
-official evaluation. The score describes Claudenette's checks; it is not an
-official Moulinette grade or a measured probability of passing it.
+Result:      ft_strlen: OK, ft_strlcpy: OK, ft_strchr: KO, ft_strdup: OK, ft_split: OK
+Final score: 40/100
+Status:      FAILED
+```
 
-The reference environment is the campus Linux target documented below. Running
-on a Mac must not silently impose macOS-specific behavior on a Linux submission.
-The ft_printf tester implements the Linux/glibc 64-bit profile described in its
-section; other modules retain their documented contracts. This is native testing,
-not a complete Linux emulator. A required test that cannot be evaluated reliably
-is UNKNOWN, with no final score, rather than a student failure or a pass.
+## Table of Contents
 
-Tests stay within each subject's domain and the defined behavior of functions it
-requires reproducing. Additional policies, such as custom-function NULL safety,
-are identified explicitly. Valid algorithms and allocation strategies are accepted;
-exact allocation counts, undefined inputs and arbitrary performance requirements
-are not added as grading obligations.
+1. [Why](#why)
+2. [Install](#install)
+3. [Usage](#usage)
+4. [Supported projects](#supported-projects)
+5. [Reading the result](#reading-the-result)
+6. [FAQ](#faq)
+7. [Update and uninstall](#update-and-uninstall)
+8. [Acknowledgments](#acknowledgments)
 
-Run against the intended submission tree. Keep redirected logs and other local
-reports outside that tree: files present there are still checked as deliverables.
-An extra-file finding identifies the files to review, not a defect in the C code.
-Claudenette does not ignore a file merely because its name resembles a test log.
+## Why
+
+Every failed evaluation costs a retry and a wait. Claudenette lets you catch the
+silly mistakes before you submit: a norm error, a missing file, a crash on an empty
+string, a leak when `malloc` fails.
+
+It is a second opinion, not a replacement for your own tests. Write a `main`, think
+about the corner cases, and then let Claudenette look for the ones you missed.
 
 ## Install
 
-Target campus environment: **Ubuntu 22.04.5 LTS**, Python 3.10 or newer.
-Install as your normal user:
+Target: **Ubuntu 22.04** (the campus machines), Python 3.10 or newer. No sudo needed.
 
 ```bash
 git clone https://github.com/rabeloivan/claudenette.git ~/claudenette
 python3 ~/claudenette/install.py
 ```
 
-The installer downloads the pinned Python dependencies into `~/claudenette/.deps/`.
-It bootstraps a temporary, pinned pip wheel and verifies its SHA-256 against PyPI
-metadata, so the system needs neither pip nor `python3-venv`. It uses no sudo,
-asks no installation questions, and changes neither system Python nor shell config.
-Internet access and write access to the checkout are required during installation.
-Grading itself does not download or install anything. Re-run the installer after
-updating `requirements.txt`.
+The installer puts its Python dependencies (`rich`, `norminette`) in
+`~/claudenette/.deps/` and changes nothing else on your system. The C tools (`cc`,
+`make`, `ar`, `nm`) come from the campus machine.
 
-### Prerequisites
+Then add an alias, so you can type `claudenette` anywhere. Use the line for the
+shell you run (`echo $SHELL` tells you), on macOS and Ubuntu alike:
 
-| Tool | Source |
-| --- | --- |
-| Python 3.10+ | campus environment |
-| `rich`, `norminette` | `install.py`, locally in `.deps/` |
-| `cc`, `make`, `ar`, `nm` | campus C toolchain |
-| shell exercise utilities | campus environment; checked when needed |
-
-If a required tool is missing, Claudenette names it and refuses that run. On a
-managed campus machine, contact campus staff about missing system tools. There
-is no automatic package-manager installation. A missing tool never becomes a pass.
-For example, C10 ex03 needs `hexdump`, and C10 ex02 needs `tail`; filtering to
-other exercises avoids requiring tools those exercises do not use.
+```bash
+# zsh
+echo "alias claudenette='python3 ~/claudenette/main.py'" >> ~/.zshrc && source ~/.zshrc
+# bash
+echo "alias claudenette='python3 ~/claudenette/main.py'" >> ~/.bashrc && source ~/.bashrc
+# fish
+echo "alias claudenette='python3 ~/claudenette/main.py'" >> ~/.config/fish/config.fish && source ~/.config/fish/config.fish
+```
 
 ## Usage
 
-Run it **from inside your exercise directory** — the directory's *name* is what
-selects the tests:
+Run it **from inside the project directory**. The directory's name tells Claudenette
+which project to grade.
 
-```bash
-cd ~/piscine/C01
-python3 ~/claudenette/main.py   # or just `claudenette`, see below
+```
+~/piscine/C01 $> claudenette                     # every exercise in C01
+~/piscine/C01 $> claudenette ex03                # only ex03
+~/piscine/C01 $> claudenette ex00 ex03           # ex00 and ex03
+~/piscine/C01 $> claudenette ft_swap.c           # the exercise that turns in this file
+~/libft       $> claudenette ft_strchr ft_split  # only these functions
+~/libft       $> claudenette --compact           # one line per function, no details
 ```
 
-That directory must be named `C00`–`C13`, or `rush00` / `rush01` / `rush02` / `bsq` /
-`shell00` / `shell01` / `piscine_reloaded` / `libft` / `ft_printf`
-(project names are case-insensitive; `piscine-reloaded` also works). Anything else exits
-with an error. **This is the most common first-run mistake** — running from the repo
-itself, or from a parent folder, will not work. Claudenette is the grader, not the
-submissions.
+Arguments are substring filters, so `ex0` matches `ex00` to `ex09`. A filtered run
+scores only what it ran: run the whole project to know where you stand.
 
-### Set up the `claudenette` alias
-
-Typing the full path every time gets old. Add the alias to your shell config —
-`~/.zshrc` on macOS (zsh is the default since Catalina), `~/.bashrc` on most Linux:
-
-```bash
-echo "alias claudenette='python3 ~/claudenette/main.py'" >> ~/.zshrc && source ~/.zshrc
-```
-
-The script loads its checkout-local dependencies automatically. No environment
-activation is needed. Add the alias to `~/.bashrc` on Ubuntu instead of `~/.zshrc`.
-
-Every example below assumes it.
-
-### What you can pass it
-
-Arguments are **substring filters** matched against exercise paths and displayed names, so anything
-that identifies an exercise works — an `exNN` directory, a filename, or both mixed.
-With no arguments you get the whole module.
-
-| Command | Grades |
+| Option | Effect |
 | --- | --- |
-| `claudenette` | every exercise in the module |
-| `claudenette ex00` | just `ex00` |
-| `claudenette ex00 ex03` | `ex00` and `ex03` |
-| `claudenette ft_print_program_name.c` | whichever exercise turns in that file |
-| `claudenette ft_print_program_name.c ex02` | mixed — the file's exercise, plus `ex02` |
-| `claudenette ex0` | `ex00`–`ex09` (it's a substring, not an exact match) |
+| `--compact` | Show the summary table only, without the details of each case |
+| `--skip-norm` | Do not run norminette |
+| `--skip-fn` | Do not check for forbidden functions |
 
-Filters are matched, not validated, so a typo grades nothing rather than failing:
+Without `--compact`, every case is shown with what was called, what was expected
+and what your code returned.
 
-```
-$ claudenette ex99
-No exercises matched 'ex99'.
-```
+## Supported projects
 
-Two things worth knowing while iterating:
+| Project | Run from | Good to know |
+| --- | --- | --- |
+| C00–C13 | `C00` … `C13` | |
+| rush00, rush01, rush02 | `rush00` … | rush00 grades all five variants and scores 0 or 100–125 |
+| bsq | `bsq` | |
+| shell00, shell01 | `shell00`, `shell01` | |
+| Piscine Reloaded (2.2) | `piscine_reloaded` or `piscine-reloaded` | Do not turn in `ft_putchar`: Claudenette supplies its own, like the Moulinette |
+| libft (19.3) | your repository root | 43 mandatory functions, list functions included; no bonus. README is a note only |
+| ft_printf (12.1) | `ft_printf` | A `bonus` rule enables two bonus groups. Output is compared against Linux/glibc, even on macOS |
 
-- Filtering changes the **score**, not just the output. `claudenette ex03` reports
-  `100/100` for that one exercise alone. Only a full run tells you where you stand,
-  because of the leading-run rule below.
-- The exercise directory must exist. A filter naming an exercise you haven't started
-  reports `ABSENT`, which counts as a failure.
+Directory names are case-insensitive.
 
-### Options
-
-| Flag | Effect |
-| --- | --- |
-| `--skip-norm` | Skip norminette |
-| `--skip-fn` | Grade without the forbidden-function check |
-| `--compact` | Show aligned FUNCTION / TESTS / RESULT columns without detailed errors |
-
-The default output keeps the original colored CLAUDENETTE banner, all test cases,
-expected/got diagnostics, score, elapsed time and final notice. Details require no
-flag. `--compact` is optional; there is no `--verbose` option. Every module uses
-short scenario labels and aligned result values. Bold group titles identify
-the existing campaigns. Failures show Call, Expected and Got fields, with context
-for write errors, allocation tracking and the first differing output byte.
-
-Function-level tests have one continuous numbered list and one final PASS/FAIL total.
-Primary cases come before the additional campaigns in those function runners; successful
-internal compilations and runs are not announced again. Compilation errors are
-always shown in normal mode. For example, `Empty string` is followed by `output 0`
-in the aligned value column of the Libft strlen report.
-
-Normal output aligns wrapped commands, case descriptions and expected/got values
-under their respective text. It follows one of two layouts:
-
-- **One block per function** for projects made of many independent functions:
-  Libft, C00–C13, Shell00, Shell01 and Piscine Reloaded. Each function or exercise
-  opens and closes with a delimiter; inside it, deliverables, Norminette, allowed calls and tests are
-  separated by a blank line.
-- **One delimiter per stage** for a single program with helpers: ft_printf, BSQ and
-  Rush00–Rush02. Deliverables, Norminette, Makefile checks, allowed calls and
-  runtime tests each get their own stage.
-
-Successful harness builds are not announced; a failed build shows its command and
-the compiler's full diagnostics. Norminette and allowed calls are announced once per
-multi-file unit, with one line per file, and Norminette always names files rather
-than the directory that holds them. In ft_printf, numbered stages start at 1
-independently; the final project total still includes every executed case.
-
-Libft checks its
-Makefile first, then the header, then each function's Norm, allowed calls and
-runtime. Its additional boundary and constructor-allocation campaigns precede
-the additional NULL-safety probes. ft_printf presents the Makefile first, then
-the header, then the source checks alongside the function's tests. Primary cases in both modules
-already contain some valid boundary inputs; there is no universal strict
-all-basic-then-all-robustness ordering.
-
-Libft messages explain what the harness checked: character classifications report
-the tested range instead of a wall of 0/1 values, memory tests name the returned
-pointer, and string searches report a byte position. If a range check fails,
-normal mode identifies the first incorrect input and its expected/actual result.
-Internal encodings such as `|R1` are compared internally, then translated for
-display; simplifying a message does not weaken the comparison.
-
-Compact rows align function names left, tests in the center and results right.
-They show `✓` / `✖` and the number passed/total. Long sequences use counts
-such as `✓×125 ✖×2` to keep the table short. Failed cases show only their `✖`,
-without descriptions or expected/actual values below the row. `TESTS:` explains
-the marks and counts; result-code explanations are omitted. Compilation failures
-keep their short label. A separator precedes the final result and score, including
-when no advisory notes are present. Run without `--compact`
-to see full test, compiler and precheck diagnostics.
-The final Result line names each function and its actual status, as in normal mode.
-
-Use the skip options only when you cannot run the relevant check. Exercises graded with a check
-bypassed are reported as `SKIPPED`, never `OK`, and the final status becomes
-`UNKNOWN` — because at that point claudenette can't tell you whether you'd pass.
-
-## Reading the score
-
-**The score counts only the leading run of consecutive `OK` results**, in exercise
-order. The first failure stops the count, and later passing exercises contribute
-nothing.
-
-So if `ex00` fails and `ex01`–`ex08` all pass, your score is `0`. Fixing `ex08` will
-not move it — fix `ex00` first. This is Claudenette's scoring rule; it does not
-reconstruct the official evaluator's hidden tests or grading rules.
-
-`Status: PASSED` at 50 or above.
-
-A bonus counts only on top of a complete mandatory part. A complete bonus scores
-`125/100`; when a bonus has several groups, as ft_printf does, each completed
-group adds its share of the 25 points (one of ft_printf's two groups gives
-`112/100`). `Bonus score:` shows how many groups passed. With `--skip-norm` or
-`--skip-fn`, the bonus is still graded when every mandatory entry passed the
-checks that ran, but it adds nothing and the status stays `UNKNOWN`.
-
-### Exit status
-
-The verdict is also the exit status, so a script or a git hook can act on it without
-reading the output:
-
-| Exit | Meaning |
-| --- | --- |
-| `0` | `Status: PASSED` |
-| `1` | `Status: FAILED` |
-| `2` | No verdict: `Status: UNKNOWN`, or claudenette couldn't grade at all (not a module directory, an unknown option, no exercise matched, a missing tool) |
-
-```bash
-claudenette && git push
-```
-
-This optional shell command runs `git push` only when Claudenette exits with 0.
-That means `PASSED` under the scoring rules above, which can occur from 50/100.
-`git push` sends commits you have already created to your configured remote.
-
-### Statuses
+## Reading the result
 
 | Status | Meaning |
 | --- | --- |
 | `OK` | Everything passed |
 | `KO` | Your code compiled but behaved incorrectly |
-| `NORM ERR` | Norminette violation |
-| `FORBIDDEN FN` | You called a function the subject doesn't allow |
-| `EXTRA FILES` | Files in the exercise directory the subject doesn't permit |
-| `ABSENT` | The file you were meant to turn in isn't there |
-| `SKIPPED` | Passed what ran, but a check was bypassed (see `--skip-norm` / `--skip-fn`) |
-| `UNKNOWN` | A required check cannot be evaluated reliably in this environment; no final score |
-| `TODO` | Claudenette has no test for this exercise yet — not your fault |
-| `CRASH` | Claudenette's own test errored. A bug here, not necessarily in your code |
+| `NORM ERR` | Norminette error |
+| `FORBIDDEN FN` | You called a function the subject does not allow |
+| `EXTRA FILES` | Files the subject does not ask you to turn in |
+| `ABSENT` | A file you must turn in is missing |
+| `SKIPPED` | Passed what ran, but you skipped a check with `--skip-norm` or `--skip-fn` |
+| `UNKNOWN` | A required check could not run reliably here; no score is given |
+| `CRASH` | Claudenette itself failed. That is our bug, not necessarily yours |
 
-When more than one applies, the most severe wins:
-`EXTRA FILES` > `NORM ERR` > `FORBIDDEN FN` > `CRASH` > `UNKNOWN` > `KO` > `SKIPPED` > `OK`.
+When several apply, the most severe wins: `EXTRA FILES` > `NORM ERR` >
+`FORBIDDEN FN` > `CRASH` > `UNKNOWN` > `KO` > `SKIPPED` > `OK`.
 
-### Extra files
+**The score stops at the first failure.** Exercises count in order, and the first
+one that is not `OK` (or `SKIPPED`) ends the count. If `ex00` fails, the score is 0
+no matter how many later exercises pass, so fix them in order. `PASSED` starts at 50.
 
-As at the Moulinette, a directory may hold only the files the subject asks you to
-turn in, plus `.git`. Anything else is `EXTRA FILES`, including `.gitignore`, object
-files, archives and executables left by a local build. Run `make fclean` before
-grading a directory where you built the project. Claudenette builds and runs
-`make`, `make clean` and `make fclean` in scratch copies, so grading never creates
-or deletes anything in your directory.
+**Bonus.** A bonus is graded only when the mandatory part is 100%. A complete bonus
+gives 125/100; one of ft_printf's two bonus groups alone gives 112/100.
+With `--skip-norm` or `--skip-fn` the bonus is still graded, but it adds no points
+and the status is `UNKNOWN`.
 
-### A house rule: NULL must not crash custom functions
+**Exit code.** `0` for `PASSED`, `1` for `FAILED`, `2` when there is no verdict.
+So `claudenette && git push` pushes only when you pass.
 
-For custom pointer-taking functions, Claudenette tests NULL arguments even when
-the subject is silent. This is a **Claudenette house rule**, not an additional
-requirement attributed to 42. Each probe changes one argument, keeps the others
-valid and requires termination without a crash or hang. It does not invent a
-return value where the subject specifies none.
+## FAQ
 
-When the subject explicitly requires reproducing a manual function, tests stay
-within that manual's defined domain. NULL arguments with undefined behavior are
-excluded, including Libft Part 1 pointer functions, C02 strcpy/strncpy/strlcpy,
-C03, C07 strdup and Piscine Reloaded strlen/strcmp/strdup. CLI projects receive real command-line and file inputs;
-Claudenette does not call their `main` with fabricated NULL arguments.
+**"Current directory does not match expected pattern"**
+You ran it from the wrong place. `cd` into the project directory itself (for example
+`~/piscine/C01`, not `~/piscine`), and check that its name matches the table above.
 
-A missing NULL guard in a custom function can therefore produce KO even when its
-ordinary cases pass. Check the case description before interpreting the result.
+**Everything is `EXTRA FILES`.**
+The directory may contain only the files you turn in, plus `.git`. Object files,
+`libft.a`, executables, `.gitignore` and logs all count. Run `make fclean` and move
+other files out. Claudenette builds in a scratch copy, so it never adds files itself.
 
-### rush00 is scored differently
+**I got KO for passing NULL, but the subject never mentions NULL.**
+For functions you design yourself, Claudenette requires that NULL does not crash.
+This is Claudenette's own rule, not 42's. Functions that reproduce a libc function,
+like `ft_strlen` in Libft, are not tested with NULL.
 
-rush00's real grading is a random per-team draw across five variants with a bonus
-above 100%, so it prints its own summary and scores `0` or `100`–`125`.
+**The Moulinette gave me 100, but Claudenette says KO.**
+That is possible. Claudenette's tests are not the Moulinette's: it checks cases
+such as `malloc` failures, write errors and memory leaks that the Moulinette may
+not test. The case description tells you exactly what failed; it is usually worth
+fixing.
 
-## Piscine Reloaded
+**My bonus was not tested.**
+The mandatory part is not 100% yet. Fix it first, then the bonus runs.
 
-Supports subject **2.2**: 28 exercises, `ex00` to `ex27`, from the Shell through C11.
-Run it from a directory named `piscine_reloaded` or `piscine-reloaded`. Each exercise
-reuses the corresponding Piscine test, with its cases, NULL and boundary campaigns,
-under the Reloaded file names. Where the subject differs:
+**It says a tool is missing.**
+Claudenette refuses to grade without a tool it needs, rather than pass you without
+checking (C10 ex03, for example, needs `hexdump`). Filtering to other exercises
+avoids tools those exercises do not use.
 
-- Exercises that authorize only `ft_putchar` (ex06, ex07, ex08, ex15, ex18, ex19) are
-  compiled with Claudenette's own `ft_putchar.c`, as the subject says the Moulinette
-  does. Do not turn in `ft_putchar`; defining it fails to link, and calling `write`
-  directly is `FORBIDDEN FN`.
-- ex00 is `exo.tar`.
-- ex12 and ex13 must return 0 from 13 upwards: the subject asks for 0 on an error
-  and, unlike C05, does not excuse overflow, and 13! does not fit an `int`.
-- ex16 reproduces `strlen` (man strlen), so NULL is not probed there.
-- ex26 `ft_count_if(char **tab, int (*f)(char*))` takes an array terminated by 0,
-  without a length. Its callback returns only 0 or 1, because the subject counts the
-  elements for which it returns 1.
+**How reliable is it?**
+Every exercise of every supported project is tested, on Ubuntu and macOS. Libft,
+ft_printf and C00–C13 had the most review; bsq, the rushes and the shell modules had
+less, so a gap is likelier there. Norminette is pinned to 3.3.60.
 
-Scoring follows the Piscine rule above; the subject gives no pass mark, so 50 is used.
+**Where are the subjects?**
+The PDFs are 42's material and are not included. Get them from the intranet.
 
-## libft
+## Update and uninstall
 
-libft is graded from the root of your project repository — the directory holding your
-`Makefile`, `libft.h` and `ft_*.c` files — because that is where the subject says they
-must live. The deliverables are `Makefile`, `libft.h`, `ft_*.c` and `README.md`.
-`.git` is repository metadata. Object files, archives and `.gitignore` are extra
-files. Run `make fclean` before grading a directory where you have built the library.
+Update:
 
-Three things are checked beyond the individual functions:
+```bash
+cd ~/claudenette && git pull && python3 install.py
+```
 
-- **Your `Makefile`**, in a scratch copy of your sources: that `$(NAME)`, `all`, `clean`,
-  `fclean` and `re` work, that `-Wall -Wextra
-  -Werror` reach the compiler and `-std=c99` doesn't, that a second `make` doesn't
-  relink, and that `libft.a` came from `ar` rather than the forbidden `libtool` — and
-  actually contains every function you turned in, since a file missing from `SRCS` is
-  invisible to every other test.
-- **Your `libft.h`**, compiled on its own: it must build without help from your `.c`
-  files and declare all 43 mandatory functions with the subject's prototypes. Each one
-  gets its own line, so while you work the declarations you already have show as correct,
-  and each missing one says whether its `.c` is written yet — the key stays `KO` until
-  the header is complete.
-- **`ft_memset`, `ft_bzero`, `ft_memcpy` and `ft_memmove`** are additionally checked for
-  calls to the libc functions they reimplement, and no file may use `restrict`, which the
-  subject forbids in your prototypes.
+Uninstall: delete `~/claudenette` and remove the `claudenette` alias line from your
+shell's config file (`~/.zshrc`, `~/.bashrc` or `~/.config/fish/config.fish`).
 
-Your `README.md` is checked too, but only as a **note**: what it lacks from the subject's
-"Readme Requirements" (the italic first line, `Description`, `Instructions`, `Resources`)
-is printed in yellow above the score and never changes it, because the README is judged by
-your peers at the defense, not by the moulinette.
+## Acknowledgments
 
-Tests run in subject order: **Makefile**, **libft.h**, then **Part 1**, **Part 2**
-and **Part 3**. Filters preserve that order, as does the final summary. Subject 19.3
-has no bonus part: all nine linked-list functions are mandatory, use `ft_lst*.c`
-filenames, and must be included by the normal `make` target. Missing list functions
-report `ABSENT` and affect the score like any other required function.
+Test inputs and ideas were adapted from the
+[Francinette](https://github.com/xicodomingues/francinette) ecosystem: Alelievr,
+Fsoares, Tripouille, War Machine and its C Piscine suites, with credit to Francisco /
+fsoares-, alelievr, Tripouille, cacharle, jtoty, badam and their contributors.
+Claudenette uses its own harnesses and interface.
 
-## ft_printf
-
-The tester follows subject 12.1. Run it from a directory named `ft_printf`, with
-its Makefile and `ft_printf.h`. Source/header subdirectories and the supplied
-Libft are supported. Builds run in scratch copies.
-
-The submission check accepts source/header directories and the supplied Libft's
-Makefile, and checks their contents recursively. Object files, archives and
-`.gitignore` are extra files, including inside source directories. Run `make fclean`
-before grading a previously built submission. README.md remains permitted at the
-root, and `.git` is repository metadata. Grading builds only its temporary copies.
-
-As in Libft, missing README.md requirements (the italic first line and
-`Description`, `Instructions`, `Resources` sections) produce advisory notes above
-the score in both output modes, without changing the grade.
-
-Checks cover the Makefile rules, flags, archive format, `ft_printf` symbol and
-header prototype, followed by conversions in subject order `c s p d i u x X %`.
-Normal output identifies the archive symbol check and its allowed external
-functions (`malloc`, `free`, `write`), with supplied Libft calls resolved from the
-archive. The allowed-call display also names the standard variadic macros
-`va_start`, `va_arg`, `va_copy` and `va_end`; these are not external symbols.
-Internal harness compilation commands and success messages are hidden;
-compilation errors remain visible.
-Each case compares every emitted byte and the returned count using a Linux/glibc
-64-bit target. Native libc supplies the portable conversions; NULL `%p` arguments
-use glibc's `(nil)` spelling and matching count, including mixed and width cases.
-Literal strings are never globally rewritten, and non-NULL pointers retain their
-exact value. On macOS this adapts known expectations without requiring a VM.
-Hosts outside the supported Linux/macOS LP64 data model produce UNKNOWN.
-A diagnosed failure to prepare guarded strings or capture output also produces
-UNKNOWN, without a final score.
-Cases include embedded zero bytes, integer limits, real object pointers, long
-strings, mixed conversions, repeated calls, output errors and allocation cleanup.
-Memory checks include scoped allocation failures, heap guards and strings ending
-at a protected memory boundary. Write errors are tested both before and after
-partial output. A recovered allocation failure is accepted when output and return
-count remain correct and temporary memory is freed.
-
-Every `va_start` and `va_copy` needs its `va_end`. Leaving one open is undefined
-behavior that no output or return value reveals, so a separate build counts them
-after normal calls, after write errors and after allocation failures. An open
-`va_list` is KO. A `va_end` called in a different function from its `va_start` is
-not detected. If a Makefile builds outside `cc`, `gcc` or `clang` found in `PATH`,
-this check cannot run and the result is UNKNOWN.
-
-Write-error and memory failures remain decisive robustness checks. A negative
-return is required after an output error; official coverage of these particular
-campaigns is not assumed. NULL formats, NULL `%s` and other undefined inputs
-remain outside the test domain.
-
-A declared `bonus` target enables two separate optional groups. One covers
-`-0.`, width and precision. The other covers `#`, space and `+`. Precision checks
-include bounded strings without a terminating zero, within libc's defined domain.
-Target discovery respects expanded Makefile rules and conditions. Bonus assessment
-requires a complete mandatory pass. A failed optional group preserves the
-mandatory score; each completed group adds its share of the bonus points described
-in [Reading the score](#reading-the-score). Filter by `ft_printf_bonus_width` or `ft_printf_bonus_signs` to
-inspect one group; a bonus-only run has an incomplete mandatory verdict.
-
-Invalid formats, mismatched argument types and undefined flag/conversion pairs
-are outside the test domain. The runner uses the existing detailed and compact
-layouts. The public runtime needs the installed compiler, make, ar and nm.
-
-## Known gaps
-
-- Automated macOS and Ubuntu checks have run.
-- Every exercise in every module now has a test — nothing reports `TODO`.
-- `norminette` is pinned in `requirements.txt` (currently 3.3.60), because two point
-  releases disagreed on files that aren't C. If 42 moves to a newer norminette,
-  claudenette follows only once that pin moves.
-- `bsq`, the rushes and the shell modules are graded, but their tests have had less
-  adversarial review than `C00`–`C13`, so a gap is likelier there than elsewhere.
-- Libft's 21 libc-comparable functions have an independent system oracle. The other
-  22 have alternative correct implementations, plus allocation-failure campaigns
-  for all ten constructors. `ft_split` results are freed word by word; `ft_lstmap`
-  checks independent nodes, source preservation, and valid identity/NULL callbacks.
-  These checks cover the exercised inputs and failure positions; they are not a
-  proof of correctness for every possible submission.
-- ft_printf has automated positive/negative controls on Linux and macOS.
-
-## Subjects
-
-The subject PDFs are 42's own course material and are **not** distributed here. Get
-them from the intranet. Claudenette never reads them at runtime — they're only
-needed if you want to check a rule yourself.
+The report style, with its banner, per-exercise results and a score that stops at the
+first failure, follows [mini-moulinette](https://github.com/k11q/mini-moulinette) by
+Khairul Haaziq (k11q), MIT license. No mini-moulinette code is included.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-
-## Test acknowledgments
-
-Test inputs and contract ideas were adapted from the
-[Francinette](https://github.com/xicodomingues/francinette) ecosystem,
-including Alelievr, Fsoares, Tripouille, War Machine and its C Piscine suites.
-Credits include Francisco / fsoares-, alelievr, Tripouille, cacharle, jtoty, badam and their
-contributors. Claudenette uses its own harnesses and interface.
-
-The report style — banner, per-exercise results and a score that counts only the
-leading run of passing exercises — follows [mini-moulinette](https://github.com/k11q/mini-moulinette)
-by Khairul Haaziq (k11q), MIT license. Claudenette reimplements that presentation; no
-mini-moulinette code is included.
-
-The public distribution contains the grader, its C harnesses and the small
-runtime resources used by C09 and shell00. Internal documentation, developer
-tools, reference submissions, subject PDFs, knowledge graphs and AI setup remain
-local. No developer fixture suite or Docker installation is required to run it.
+MIT. See [LICENSE](LICENSE).
