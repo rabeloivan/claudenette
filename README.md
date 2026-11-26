@@ -211,8 +211,9 @@ reconstruct the official evaluator's hidden tests or grading rules.
 A bonus counts only on top of a complete mandatory part. A complete bonus scores
 `125/100`; when a bonus has several groups, as ft_printf does, each completed
 group adds its share of the 25 points (one of ft_printf's two groups gives
-`112/100`). `Bonus score:` shows how many groups passed. A bonus graded with
-`--skip-norm` or `--skip-fn` adds nothing.
+`112/100`). `Bonus score:` shows how many groups passed. With `--skip-norm` or
+`--skip-fn`, the bonus is still graded when every mandatory entry passed the
+checks that ran, but it adds nothing and the status stays `UNKNOWN`.
 
 ### Exit status
 

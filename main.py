@@ -437,8 +437,11 @@ if __name__ == "__main__":
             strict_symbols = options.get("strict_symbols")
             if options.get("bonus", False):
                 bonus_names.add(ex_name)
+            # SKIPPED counts as complete here: every check that ran passed, and
+            # the user chose --skip-norm/--skip-fn knowing the risk. The bonus
+            # is still graded but awards no points (see print_final_summary).
             if options.get("requires_mandatory") and any(
-                status != "OK" for name, status in results if name not in bonus_names
+                status not in ("OK", "SKIPPED") for name, status in results if name not in bonus_names
             ):
                 if not bonus_blocked:
                     console.print("[bright_black]Bonus requires a complete mandatory pass.[/bright_black]")
