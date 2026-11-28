@@ -77,6 +77,10 @@ void	h_alloc_begin(long fail_at);
 void	h_alloc_stop(void);
 void	h_alloc_pause(int paused);
 long	h_alloc_attempts(void);
+/* Requests the arena could not hold, counted from h_alloc_begin(). */
+long	h_alloc_refused(void);
+/* Largest size requested during the campaign, refused or not. */
+unsigned long	h_alloc_largest(void);
 int		h_alloc_live(void);
 int		h_alloc_owned(void *ptr);
 /* Live campaign allocation containing ptr; an interior pointer is accepted. */

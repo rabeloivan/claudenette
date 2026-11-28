@@ -288,6 +288,7 @@ def get_current_exercise_mapping():
         "shell00",
         "shell01",
         "libft",
+        "get_next_line",
         "ft_printf",
     }
 
@@ -336,7 +337,7 @@ if __name__ == "__main__":
     if test_map is None:
         error_msg = (
             f"Current directory '{dir_name}' does not match expected pattern "
-            "(C00~13, rush00, rush01, rush02, bsq, shell00, shell01, piscine_reloaded, libft, ft_printf)."
+            "(C00~13, rush00, rush01, rush02, bsq, shell00, shell01, piscine_reloaded, libft, get_next_line, ft_printf)."
         )
         fix_msg = "Please navigate to an appropriate directory to run tests."
         console.print(f"[deep_pink2]{error_msg:^{BANNER_WIDTH}s}[/deep_pink2]")
@@ -419,7 +420,7 @@ if __name__ == "__main__":
     for student_file_path in sorted_paths:
         with exercise_report(lambda: results[-1], compact=compact,
                              concise=piscine or test_module.__name__ in (
-                                 'tests.libft', 'tests.ft_printf'),
+                                 'tests.libft', 'tests.ft_printf', 'tests.get_next_line'),
                              presenter=presenters.get(student_file_path),
                              stages=output_layout(test_module.__name__)):
             mapping_entry = test_map[student_file_path]
@@ -568,7 +569,8 @@ if __name__ == "__main__":
                     for source in display_sources:
                         check_norminette(source, extra_rules=extra_norm_rules)
 
-                if skip_fn or not key_is_source or options.get("runner_checks_symbols"):
+                if (skip_fn or not key_is_source or options.get("runner_checks_symbols")
+                        or options.get("runner_checks_functions")):
                     fns_passed = True
                 else:
                     fns_passed = True
@@ -584,11 +586,20 @@ if __name__ == "__main__":
 
                 checks_bypassed = skip_norm or skip_fn
             runner_norm_results = {}
+            runner_function_results = []
 
             def check_runner_norm(source):
                 runner_norm_results[os.path.abspath(source)] = check_norminette(
                     source, extra_rules=extra_norm_rules,
                 )
+
+            def check_runner_functions():
+                for variant_index, flags in enumerate(options.get("compile_variants", [extra_compile_flags])):
+                    for source in options.get("source_files", [student_file_path]):
+                        runner_function_results.append(check_allowed_functions(
+                            source, allowed_fns, extra_flags=flags,
+                            strict_symbols=strict_symbols, announce=variant_index == 0,
+                        ))
 
             # run_func is student-controlled code and test code alike - either
             # side can raise (a harness that isn't defensive about malformed
@@ -626,6 +637,12 @@ if __name__ == "__main__":
                                 files_passed and norm_passed and fns_passed and not checks_bypassed
                             )
                             tests_passed = run_func(student_file_path, precheck_ok=rush00_precheck_ok)
+                        elif options.get("runner_checks_functions"):
+                            tests_passed = run_func(
+                                student_file_path,
+                                norm_check=None if skip_norm else check_runner_norm,
+                                function_check=None if skip_fn else check_runner_functions,
+                            )
                         elif options.get("runner_checks_norm"):
                             tests_passed = run_func(
                                 student_file_path, check_symbols=not skip_fn,
@@ -672,6 +689,11 @@ if __name__ == "__main__":
                     if os.path.abspath(source) not in runner_norm_results:
                         check_runner_norm(source)
                 norm_passed = all(runner_norm_results.values())
+
+            if options.get("runner_checks_functions") and not skip_fn:
+                if not runner_function_results:
+                    check_runner_functions()
+                fns_passed = all(runner_function_results)
 
             if not files_passed:
                 results.append((ex_name, "EXTRA FILES"))

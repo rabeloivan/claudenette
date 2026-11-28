@@ -159,7 +159,16 @@ int	h_free_count_of(void *ptr)
 ** the student must NOT look like it was pre-zeroed, so a missing NULL
 ** terminator or an uninitialised field shows up instead of hiding.
 */
-#define ARENA_SIZE (1024UL * 1024UL)
+/*
+** A harness that must serve one very large block (get_next_line's 10 MB
+** read buffer) opts into a bigger arena with -DH_ARENA_SIZE; its slot table
+** keeps the default size through H_BLOCK_MAX so it does not grow with it.
+*/
+#ifdef H_ARENA_SIZE
+# define ARENA_SIZE ((unsigned long)(H_ARENA_SIZE))
+#else
+# define ARENA_SIZE (1024UL * 1024UL)
+#endif
 #define POISON 0xAA
 #define ALIGN 16UL
 /*
@@ -180,7 +189,11 @@ int	h_free_count_of(void *ptr)
 ** recording without a word - an overflow in the 257th block went unseen,
 ** and freeing it was never scribbled.
 */
-#define BLOCK_MAX (ARENA_SIZE / ALIGN)
+#ifdef H_BLOCK_MAX
+# define BLOCK_MAX ((unsigned long)(H_BLOCK_MAX))
+#else
+# define BLOCK_MAX (ARENA_SIZE / ALIGN)
+#endif
 
 _Alignas(16) static unsigned char	g_arena[ARENA_SIZE];
 static unsigned long	g_arena_used;
@@ -193,12 +206,16 @@ static int				g_inject;
 static int				g_paused;
 static long				g_fail_at;
 static long				g_attempts;
+static long				g_refused;
+static unsigned long	g_largest;
 
 void	h_alloc_begin(long fail_at)
 {
 	g_scope_start = g_block_count;
 	g_fail_at = fail_at;
 	g_attempts = 0;
+	g_refused = 0;
+	g_largest = 0;
 	g_paused = 0;
 	g_inject = 1;
 }
@@ -216,6 +233,16 @@ void	h_alloc_pause(int paused)
 long	h_alloc_attempts(void)
 {
 	return (g_attempts);
+}
+
+long	h_alloc_refused(void)
+{
+	return (g_refused);
+}
+
+unsigned long	h_alloc_largest(void)
+{
+	return (g_largest);
 }
 
 int	h_alloc_live(void)
@@ -305,6 +332,8 @@ void	*malloc(unsigned long size)
 	if (g_inject && !g_paused)
 	{
 		g_attempts++;
+		if (size > g_largest)
+			g_largest = size;
 		if (g_fail_at >= 0 && g_attempts > g_fail_at)
 			return (NULL);
 	}
@@ -321,10 +350,16 @@ void	*malloc(unsigned long size)
 	*/
 	/* Reject before addition too: SIZE_MAX must not wrap the guard size. */
 	if (size > ARENA_SIZE - 2 * REDZONE - ALIGN)
+	{
+		g_refused++;
 		return (NULL);
+	}
 	want = (size + 2 * REDZONE + (ALIGN - 1)) & ~(ALIGN - 1);
 	if (want > ARENA_SIZE || g_arena_used + want > ARENA_SIZE)
+	{
+		g_refused++;
 		return (NULL);
+	}
 	p = &g_arena[g_arena_used + REDZONE];
 	g_arena_used += want;
 	i = 0;

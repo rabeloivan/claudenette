@@ -199,7 +199,7 @@ def start_compact_report(names):
 def compact_report(name, status, report=None, cases=None):
     global _header_shown
     report = report or Report()
-    if not _header_shown and (name.startswith('ft_printf') or report.stages):
+    if not _header_shown and (name.startswith(('ft_printf', 'get_next_line')) or report.stages):
         from utils.ui import print_test_stage
         print_test_stage(reset_index=False)
     cases = report.cases if cases is None else cases
