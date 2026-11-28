@@ -104,6 +104,7 @@ and what your code returned.
 | Piscine Reloaded (2.2) | `piscine_reloaded` or `piscine-reloaded` | Do not turn in `ft_putchar`: Claudenette supplies its own, like the Moulinette |
 | libft (19.3) | your repository root | 43 mandatory functions, list functions included; no bonus. README is a note only |
 | ft_printf (12.1) | `ft_printf` | A `bonus` rule enables two bonus groups. Output is compared against Linux/glibc, even on macOS |
+| get_next_line (14.3) | `get_next_line` | `BUFFER_SIZE` from 1 to 10000000, plus 0, -1 and INT_MAX; the bonus covers several file descriptors |
 
 Directory names are case-insensitive.
 
@@ -152,6 +153,11 @@ For functions you design yourself, Claudenette requires that NULL does not crash
 This is Claudenette's own rule, not 42's. Functions that reproduce a libc function,
 like `ft_strlen` in Libft, are not tested with NULL.
 
+**get_next_line got KO with `BUFFER_SIZE=0` or `-1`, but the subject never mentions it.**
+Claudenette requires get_next_line to return NULL there without reading, leaking or
+looping. This is also Claudenette's own rule. These two builds skip `-Werror`, so a
+compiler warning about the constant read size does not count against you.
+
 **The Moulinette gave me 100, but Claudenette says KO.**
 That is possible. Claudenette's tests are not the Moulinette's: it checks cases
 such as `malloc` failures, write errors and memory leaks that the Moulinette may
@@ -168,7 +174,7 @@ avoids tools those exercises do not use.
 
 **How reliable is it?**
 Every exercise of every supported project is tested, on Ubuntu and macOS. Libft,
-ft_printf and C00–C13 had the most review; bsq, the rushes and the shell modules had
+ft_printf, get_next_line and C00–C13 had the most review; bsq, the rushes and the shell modules had
 less, so a gap is likelier there. Norminette is pinned to 3.3.60.
 
 **Where are the subjects?**
