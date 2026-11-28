@@ -45,6 +45,18 @@ ssize_t gnl_read(int fd, void *buffer, size_t count)
        is harmless; any other count would write past the student's buffer. */
     if (count)
         fail("read was called with a nonzero count although BUFFER_SIZE <= 0");
+#elif defined(BUFFER_SIZE)
+    /* The subject: BUFFER_SIZE "will define the buffer size for read()".
+       Zero-count probes stay allowed; any other count must be BUFFER_SIZE. */
+    if (count && count != (size_t)BUFFER_SIZE)
+    {
+        char message[128];
+
+        snprintf(message, sizeof(message),
+            "read was called with count %lu; every read must request BUFFER_SIZE (%ld) bytes",
+            (unsigned long)count, (long)BUFFER_SIZE);
+        fail(message);
+    }
 #endif
     /* Includes zero-count probes such as read(fd, NULL, 0). */
     if (fail_every_read)
