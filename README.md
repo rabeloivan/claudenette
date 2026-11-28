@@ -27,10 +27,10 @@ Status:      FAILED
 1. [Why](#why)
 2. [Install](#install)
 3. [Usage](#usage)
-4. [Supported projects](#supported-projects)
-5. [Reading the result](#reading-the-result)
+4. [Supported Projects](#supported-projects)
+5. [Reading the Result](#reading-the-result)
 6. [FAQ](#faq)
-7. [Update and uninstall](#update-and-uninstall)
+7. [Update and Uninstall](#update-and-uninstall)
 8. [Acknowledgments](#acknowledgments)
 
 ## Why
@@ -93,7 +93,7 @@ scores only what it ran: run the whole project to know where you stand.
 Without `--compact`, every case is shown with what was called, what was expected
 and what your code returned.
 
-## Supported projects
+## Supported Projects
 
 | Project | Run from | Good to know |
 | --- | --- | --- |
@@ -108,7 +108,7 @@ and what your code returned.
 
 Directory names are case-insensitive.
 
-## Reading the result
+## Reading the Result
 
 | Status | Meaning |
 | --- | --- |
@@ -139,48 +139,84 @@ So `claudenette && git push` pushes only when you pass.
 
 ## FAQ
 
-**"Current directory does not match expected pattern"**
+<details>
+<summary><b>"Current directory does not match expected pattern"</b></summary>
+
 You ran it from the wrong place. `cd` into the project directory itself (for example
 `~/piscine/C01`, not `~/piscine`), and check that its name matches the table above.
 
-**Everything is `EXTRA FILES`.**
+</details>
+
+<details>
+<summary><b>Everything is <code>EXTRA FILES</code>.</b></summary>
+
 The directory may contain only the files you turn in, plus `.git`. Object files,
 `libft.a`, executables, `.gitignore` and logs all count. Run `make fclean` and move
 other files out. Claudenette builds in a scratch copy, so it never adds files itself.
 
-**I got KO for passing NULL, but the subject never mentions NULL.**
+</details>
+
+<details>
+<summary><b>I got KO for passing NULL, but the subject never mentions NULL.</b></summary>
+
 For functions you design yourself, Claudenette requires that NULL does not crash.
 This is Claudenette's own rule, not 42's. Functions that reproduce a libc function,
 like `ft_strlen` in Libft, are not tested with NULL.
 
-**get_next_line got KO with `BUFFER_SIZE=0` or `-1`, but the subject never mentions it.**
+</details>
+
+<details>
+<summary><b>get_next_line got KO with <code>BUFFER_SIZE=0</code> or <code>-1</code>, but the subject never mentions it.</b></summary>
+
 Claudenette requires get_next_line to return NULL there without reading, leaking or
 looping. This is also Claudenette's own rule. These two builds skip `-Werror`, so a
 compiler warning about the constant read size does not count against you.
 
-**The Moulinette gave me 100, but Claudenette says KO.**
+</details>
+
+<details>
+<summary><b>The Moulinette gave me 100, but Claudenette says KO.</b></summary>
+
 That is possible. Claudenette's tests are not the Moulinette's: it checks cases
 such as `malloc` failures, write errors and memory leaks that the Moulinette may
 not test. The case description tells you exactly what failed; it is usually worth
 fixing.
 
-**My bonus was not tested.**
+</details>
+
+<details>
+<summary><b>My bonus was not tested.</b></summary>
+
 The mandatory part is not 100% yet. Fix it first, then the bonus runs.
 
-**It says a tool is missing.**
+</details>
+
+<details>
+<summary><b>It says a tool is missing.</b></summary>
+
 Claudenette refuses to grade without a tool it needs, rather than pass you without
 checking (C10 ex03, for example, needs `hexdump`). Filtering to other exercises
 avoids tools those exercises do not use.
 
-**How reliable is it?**
+</details>
+
+<details>
+<summary><b>How reliable is it?</b></summary>
+
 Every exercise of every supported project is tested, on Ubuntu and macOS. Libft,
 ft_printf, get_next_line and C00–C13 had the most review; bsq, the rushes and the shell modules had
 less, so a gap is likelier there. Norminette is pinned to 3.3.60.
 
-**Where are the subjects?**
+</details>
+
+<details>
+<summary><b>Where are the subjects?</b></summary>
+
 The PDFs are 42's material and are not included. Get them from the intranet.
 
-## Update and uninstall
+</details>
+
+## Update and Uninstall
 
 Update:
 
